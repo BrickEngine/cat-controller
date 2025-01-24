@@ -1,0 +1,46 @@
+{
+  "name": "Cat Controller",
+
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$path": "src/server"
+    },
+    "StarterPlayer": {
+      "StarterCharacterScripts": {
+        "$className": "StarterCharacterScripts",
+        "$path": "src/client-sc"
+      },
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "$path": "src/client-sp"
+      }
+    },
+    "Workspace": {
+      "$properties": {
+        "StreamingEnabled": false
+      }
+    },
+    "Lighting": {
+      "$properties": {
+        "Ambient": [0,0,0],
+        "Brightness": 2,
+        "GlobalShadows": true,
+        "Outlines": false,
+        "Technology": "Voxel"
+      }
+    },
+    "SoundService": {
+      "$properties": {
+        "RespectFilteringEnabled": true
+      }
+    }
+  }
+}
