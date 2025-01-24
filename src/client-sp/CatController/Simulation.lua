@@ -2,10 +2,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
-local simStates = script.Parent.SimStates
-local StateGround = require(simStates.Ground)
-local StateWater = require(simStates.Water)
-local StateAir = require(simStates.Air)
+local StateMachine = require(script.Parent.StateMachine)
 
 local RENDER_PRIO = 100
 
@@ -28,12 +25,15 @@ function Simulation.new()
     RunService:BindToRenderStep("SimulationRSUpdate", RENDER_PRIO, function(dt) 
         self:update(dt) 
     end)
-    
+
 	UserInputService.LastInputTypeChanged:Connect(function(newLastInputType)
 		self:OnLastInputTypeChanged(newLastInputType)
 	end)
 end
 
+function Simulation:update()
+    
+end
 function Simulation:onCharAdded(character)
     self.character = character
 end
