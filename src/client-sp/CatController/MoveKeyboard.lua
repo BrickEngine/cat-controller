@@ -5,6 +5,8 @@
 -- self.moveVec = VEC3_ZERO
 -- self.__connectionUtil = ConnectionUtil.new()
 
+ContextActionService = game:GetService("ContextActionService")
+
 local BaseMoveInput = require(script.Parent.BaseMoveInput)
 local ContextActions = require(script.Parent.ContextActions)
 
@@ -33,7 +35,7 @@ function MoveKeyboard.new(CONTROL_PRIORITY)
     return self
 end
 
-function Keyboard:enable()
+function MoveKeyboard:enable()
     if (self.enable) then
         return true
     end
@@ -44,7 +46,7 @@ function Keyboard:enable()
     return true
 end
 
-function Keyboard:updateInputVec(inputState: Enum.UserInputState)
+function MoveKeyboard:updateInputVec(inputState: Enum.UserInputState)
     if (inputState == Enum.UserInputState.Cancel) then
         self.moveVec = VEC3_ZERO
     else
@@ -52,7 +54,7 @@ function Keyboard:updateInputVec(inputState: Enum.UserInputState)
     end
 end
 
-function Keyboard:bindActions()
+function MoveKeyboard:bindActions()
 	local handleMoveForward = function(actionName, inputState, inputObject)
 		self.f_val = (inputState == Enum.UserInputState.Begin) and -1 or 0
 		self:updateInputVec(inputState)
