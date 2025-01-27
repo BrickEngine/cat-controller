@@ -5,17 +5,17 @@ local BaseState = require(script.Parent.BaseState)
 local Ground = setmetatable({}, BaseState)
 Ground.__index = Ground
 
-function Ground.new(character: Model, inputVec: Vector3)
-    local self = setmetatable(BaseState.new(character) :: BaseState.BaseStateType, Ground)
+function Ground.new(stateMachine)
+    local self = setmetatable(BaseState.new(stateMachine) :: BaseState.BaseStateType, Ground)
     
-    self.character = character
-    self.inputVec = inputVec
+    self.stateMachine = stateMachine
+    self.physCheck = nil
 
     return self :: BaseState.BaseStateType
 end
 
 function Ground:enterState()
-    
+
 end
 
 function Ground:leaveState()
@@ -25,3 +25,5 @@ end
 function Ground:update(dt: number)
     
 end
+
+return Ground

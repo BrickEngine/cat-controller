@@ -5,7 +5,10 @@ Controller.__index = Controller
 
 function Controller.new()
     local self = setmetatable({}, Controller)
-    self.simulation = require(script.simulation)
+
+    self.simulation = require(script.Simulation)
+
+    return self
 end
 
 function Controller:getSimulation()

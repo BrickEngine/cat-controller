@@ -5,11 +5,8 @@ local BaseState = require(script.Parent.BaseState)
 local Water = setmetatable({}, BaseState)
 Water.__index = Water
 
-function Water.new(character: Model, inputVec: Vector3)
-    local self = setmetatable(BaseState.new(character) :: BaseState.BaseStateType, Water)
-    
-    self.character = character
-    self.inputVec = inputVec
+function Water.new(...)
+    local self = setmetatable(BaseState.new(...) :: BaseState.BaseStateType, Water)
 
     return self :: BaseState.BaseStateType
 end
@@ -25,3 +22,5 @@ end
 function Water:update(dt: number)
     
 end
+
+return Water

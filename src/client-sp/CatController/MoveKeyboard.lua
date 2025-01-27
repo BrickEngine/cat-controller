@@ -50,28 +50,28 @@ function MoveKeyboard:updateInputVec(inputState: Enum.UserInputState)
     if (inputState == Enum.UserInputState.Cancel) then
         self.moveVec = VEC3_ZERO
     else
-        self.moveVec = Vector3.new(self.l_val - self.r_val, 0, self.f_val - self.b_val)
+        self.moveVec = Vector3.new(self.l_val + self.r_val, 0, self.f_val + self.b_val)
     end
 end
 
 function MoveKeyboard:bindActions()
 	local handleMoveForward = function(actionName, inputState, inputObject)
-		self.f_val = (inputState == Enum.UserInputState.Begin) and -1 or 0
+		self.f_val = (inputState == Enum.UserInputState.Begin) and 1 or 0
 		self:updateInputVec(inputState)
 		return Enum.ContextActionResult.Pass
 	end
 	local handleMoveBackward = function(actionName, inputState, inputObject)
-		self.b_val = (inputState == Enum.UserInputState.Begin) and 1 or 0
+		self.b_val = (inputState == Enum.UserInputState.Begin) and -1 or 0
 		self:updateInputVec(inputState)
 		return Enum.ContextActionResult.Pass
 	end
 	local handleMoveLeft = function(actionName, inputState, inputObject)
-		self.l_val = (inputState == Enum.UserInputState.Begin) and -1 or 0
+		self.l_val = (inputState == Enum.UserInputState.Begin) and 1 or 0
 		self:updateInputVec(inputState)
 		return Enum.ContextActionResult.Pass
 	end
 	local handleMoveRight = function(actionName, inputState, inputObject)
-		self.r_val = (inputState == Enum.UserInputState.Begin) and 1 or 0
+		self.r_val = (inputState == Enum.UserInputState.Begin) and -1 or 0
 		self:updateInputVec(inputState)
 		return Enum.ContextActionResult.Pass
 	end

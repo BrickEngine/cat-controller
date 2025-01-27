@@ -2,7 +2,9 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
-local StateMachine = require(script.Parent.StateMachine)
+local Controller = script.Parent
+local CameraModule = require(Controller.CameraModule)
+local StateMachine = require(Controller.StateMachine)
 
 local RENDER_PRIO = 100
 
@@ -36,10 +38,12 @@ function Simulation:update()
 end
 function Simulation:onCharAdded(character)
     self.character = character
+    StateMachine:resetRefs(character)
 end
 
 function Simulation:onCharRemoving()
     self.character = nil
+    StateMachine:resetRefs(nil)
 end
 
 return Simulation.new()

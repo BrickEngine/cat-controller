@@ -1,4 +1,4 @@
-local Physics = {}
+local Phys = {}
 
 local NUM_RAYS = 32
 local ALPHA = 2
@@ -16,7 +16,7 @@ local function radiusDist(k, n, b)
 	end
 end
 
-function Physics.createForces(mdl:Model)
+function Phys.createForces(mdl:Model)
 	local defPos = mdl.PrimaryPart.CFrame 
 
 	local velocity0 = Instance.new("Attachment")
@@ -61,7 +61,7 @@ function Physics.createForces(mdl:Model)
 	return vertVecForce, horVecForce
 end
 
-function colliderCast(rayCenterPos:Vector3, radius, hipHeight, rayParams:RaycastParams, currVel:Vector3)
+function Phys.colliderCast(rayCenterPos:Vector3, radius, hipHeight, rayParams:RaycastParams, currVel:Vector3)
 	local rayArr = {}
 	local boundPts = math.round(ALPHA * math.sqrt(NUM_RAYS))
 	local grounded = false
@@ -111,4 +111,4 @@ function colliderCast(rayCenterPos:Vector3, radius, hipHeight, rayParams:Raycast
 	return grounded, gndHeight, normal, normAngle
 end
 
-return Physics.colliderCast
+return Phys.colliderCast
