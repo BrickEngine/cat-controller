@@ -122,25 +122,25 @@ function CamUtils.sanitizeAngle(a: number): number
 end
 
 -- From TransparencyController
-function CamUtils.Round(num: number, places: number): number
+function CamUtils.round(num: number, places: number): number
 	local decimalPivot = 10^places
 	return math.floor(num * decimalPivot + 0.5) / decimalPivot
 end
 
-function CamUtils.IsFinite(val: number): boolean
+function CamUtils.isFinite(val: number): boolean
 	return val == val and val ~= math.huge and val ~= -math.huge
 end
 
-function CamUtils.IsFiniteVector3(vec3: Vector3): boolean
-	return CamUtils.IsFinite(vec3.X) and CamUtils.IsFinite(vec3.Y) and CamUtils.IsFinite(vec3.Z)
+function CamUtils.isFiniteVector3(vec3: Vector3): boolean
+	return CamUtils.isFinite(vec3.X) and CamUtils.isFinite(vec3.Y) and CamUtils.isFinite(vec3.Z)
 end
 
 -- Legacy implementation renamed
-function CamUtils.GetAngleBetweenXZVectors(v1: Vector3, v2: Vector3): number
+function CamUtils.getAngleBetweenXZVectors(v1: Vector3, v2: Vector3): number
 	return math.atan2(v2.X*v1.Z-v2.Z*v1.X, v2.X*v1.X+v2.Z*v1.Z)
 end
 
-function CamUtils.RotateVectorByAngleAndRound(camLook: Vector3, rotateAngle: number, roundAmount: number): number
+function CamUtils.rotateVectorByAngleAndRound(camLook: Vector3, rotateAngle: number, roundAmount: number): number
 	if camLook.Magnitude > 0 then
 		camLook = camLook.Unit
 		local currAngle = math.atan2(camLook.Z, camLook.X)
@@ -154,7 +154,7 @@ end
 -- the larger K is the more straight/linear the curve gets
 local k = 0.35
 local lowerK = 0.8
-local function SCurveTranform(t: number)
+local function sCurveTranform(t: number)
 	t = math.clamp(t, -1, 1)
 	if t >= 0 then
 		return (k*t) / (k - t + 1)
@@ -177,61 +177,11 @@ function CamUtils.GamepadLinearToCurve(thumbstickPosition: Vector2)
 		if axisValue < 0 then
 			sign = -1
 		end
-		local point = fromSCurveSpace(SCurveTranform(toSCurveSpace(math.abs(axisValue))))
+		local point = fromSCurveSpace(sCurveTranform(toSCurveSpace(math.abs(axisValue))))
 		point = point * sign
 		return math.clamp(point, -1, 1)
 	end
 	return Vector2.new(onAxis(thumbstickPosition.X), onAxis(thumbstickPosition.Y))
-end
-
--- This function converts 4 different, redundant enumeration types to one standard so the values can be compared
-function CamUtils.ConvertCameraModeEnumToStandard(enumValue:
-		Enum.TouchCameraMovementMode |
-		Enum.ComputerCameraMovementMode |
-		Enum.DevTouchCameraMovementMode |
-		Enum.DevComputerCameraMovementMode): Enum.ComputerCameraMovementMode | Enum.DevComputerCameraMovementMode
-	if enumValue == Enum.TouchCameraMovementMode.Default then
-		return Enum.ComputerCameraMovementMode.Follow
-	end
-
-	if enumValue == Enum.ComputerCameraMovementMode.Default then
-		return Enum.ComputerCameraMovementMode.Classic
-	end
-
-	if enumValue == Enum.TouchCameraMovementMode.Classic or
-		enumValue == Enum.DevTouchCameraMovementMode.Classic or
-		enumValue == Enum.DevComputerCameraMovementMode.Classic or
-		enumValue == Enum.ComputerCameraMovementMode.Classic then
-		return Enum.ComputerCameraMovementMode.Classic
-	end
-
-	if enumValue == Enum.TouchCameraMovementMode.Follow or
-		enumValue == Enum.DevTouchCameraMovementMode.Follow or
-		enumValue == Enum.DevComputerCameraMovementMode.Follow or
-		enumValue == Enum.ComputerCameraMovementMode.Follow then
-		return Enum.ComputerCameraMovementMode.Follow
-	end
-
-	if enumValue == Enum.TouchCameraMovementMode.Orbital or
-		enumValue == Enum.DevTouchCameraMovementMode.Orbital or
-		enumValue == Enum.DevComputerCameraMovementMode.Orbital or
-		enumValue == Enum.ComputerCameraMovementMode.Orbital then
-		return Enum.ComputerCameraMovementMode.Orbital
-	end
-
-	if enumValue == Enum.ComputerCameraMovementMode.CameraToggle or
-		enumValue == Enum.DevComputerCameraMovementMode.CameraToggle then
-		return Enum.ComputerCameraMovementMode.CameraToggle
-	end
-
-	-- Note: Only the Dev versions of the Enums have UserChoice as an option
-	if enumValue == Enum.DevTouchCameraMovementMode.UserChoice or
-		enumValue == Enum.DevComputerCameraMovementMode.UserChoice then
-		return Enum.DevComputerCameraMovementMode.UserChoice
-	end
-
-	-- For any unmapped options return Classic camera
-	return Enum.ComputerCameraMovementMode.Classic
 end
 
 local function getMouse()

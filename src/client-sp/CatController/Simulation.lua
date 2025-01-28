@@ -29,8 +29,10 @@ function Simulation.new()
     end)
 
 	UserInputService.LastInputTypeChanged:Connect(function(newLastInputType)
-		self:OnLastInputTypeChanged(newLastInputType)
+		--self:onLastInputTypeChanged(newLastInputType)
 	end)
+
+    return self
 end
 
 function Simulation:update()
@@ -46,4 +48,5 @@ function Simulation:onCharRemoving()
     StateMachine:resetRefs(nil)
 end
 
-return Simulation.new()
+local simulationObject = Simulation.new()
+return simulationObject

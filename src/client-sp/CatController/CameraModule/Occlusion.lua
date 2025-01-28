@@ -1,9 +1,9 @@
 -- Occlusion module that brings the camera closer to the subject when objects are blocking the view
 
-local FlagUtil = require(script.Parent.Parent.Common.FlagUtil)
+--local FlagUtil = require(script.Parent.Parent.Common.FlagUtil)
 local ZoomController =  require(script.Parent.ZoomController)
 
-local FFlagUserFixCameraFPError = FlagUtil.getUserFlag("UserFixCameraFPError")
+--local FFlagUserFixCameraFPError = FlagUtil.getUserFlag("UserFixCameraFPError")
 
 local TransformExtrapolator = {} do
 	TransformExtrapolator.__index = TransformExtrapolator
@@ -34,7 +34,7 @@ local TransformExtrapolator = {} do
 		}, TransformExtrapolator)
 	end
 
-	function TransformExtrapolator:Step(dt: number, currentCFrame: CFrame)
+	function TransformExtrapolator:step(dt: number, currentCFrame: CFrame)
 		local lastCFrame = self.lastCFrame or currentCFrame
 		self.lastCFrame = currentCFrame
 
@@ -62,62 +62,58 @@ local TransformExtrapolator = {} do
 		}
 	end
 
-	function TransformExtrapolator:Reset()
+	function TransformExtrapolator:reset()
 		self.lastCFrame = nil
 	end
 end
 
---[[ The Module ]]--
-local BaseOcclusion = require(script.Parent:WaitForChild("BaseOcclusion"))
-local Poppercam = setmetatable({}, BaseOcclusion)
-Poppercam.__index = Poppercam
+local Occlusion = {}
+Occlusion.__index = Occlusion
 
-function Poppercam.new()
-	local self = setmetatable(BaseOcclusion.new(), Poppercam)
+function Occlusion.new()
+	local self = setmetatable({}, Occlusion)
 	self.focusExtrapolator = TransformExtrapolator.new()
 	return self
 end
 
-function Poppercam:GetOcclusionMode()
+function Occlusion:getOcclusionMode()
 	return Enum.DevCameraOcclusionMode.Zoom
 end
 
-function Poppercam:Enable(enable)
-	self.focusExtrapolator:Reset()
+function Occlusion:enable(enable)
+	self.focusExtrapolator:reset()
 end
 
-function Poppercam:Update(renderDt, desiredCameraCFrame, desiredCameraFocus, cameraController)
+function Occlusion:update(renderDt, desiredCameraCFrame, desiredCameraFocus, cameraController)
 	local rotatedFocus = nil
-	if FFlagUserFixCameraFPError then
-		rotatedFocus = CFrame.lookAlong(desiredCameraFocus.p, -desiredCameraCFrame.LookVector)*CFrame.new(
-			0, 0, 0,
-			-1, 0, 0,
-			0, 1, 0,
-			0, 0, -1
-		)
-	else
-		rotatedFocus = CFrame.new(desiredCameraFocus.p, desiredCameraCFrame.p)*CFrame.new(
-			0, 0, 0,
-			-1, 0, 0,
-			0, 1, 0,
-			0, 0, -1
-		)
-	end
+	--if FFlagUserFixCameraFPError then
+	rotatedFocus = CFrame.lookAlong(desiredCameraFocus.p, -desiredCameraCFrame.LookVector) * CFrame.new(
+		0, 0, 0,
+		-1, 0, 0,
+		0, 1, 0,
+		0, 0, -1
+	)
+	-- else
+	-- 	rotatedFocus = CFrame.new(desiredCameraFocus.p, desiredCameraCFrame.p) * CFrame.new(
+	-- 		0, 0, 0,
+	-- 		-1, 0, 0,
+	-- 		0, 1, 0,
+	-- 		0, 0, -1
+	-- 	)
+	-- end
 
-	local extrapolation = self.focusExtrapolator:Step(renderDt, rotatedFocus)
-	local zoom = ZoomController.Update(renderDt, rotatedFocus, extrapolation)
+	local extrapolation = self.focusExtrapolator:step(renderDt, rotatedFocus)
+	local zoom = ZoomController.update(renderDt, rotatedFocus, extrapolation)
 	return rotatedFocus*CFrame.new(0, 0, zoom), desiredCameraFocus
 end
 
--- Called when character is added
-function Poppercam:CharacterAdded(character, player)
+function Occlusion:characterAdded(character, player)
 end
 
--- Called when character is about to be removed
-function Poppercam:CharacterRemoving(character, player)
+function Occlusion:characterRemoving(character, player)
 end
 
-function Poppercam:OnCameraSubjectChanged(newSubject)
+function Occlusion:onCameraSubjectChanged(newSubject)
 end
 
-return Poppercam
+return Occlusion

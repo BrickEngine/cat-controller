@@ -45,7 +45,7 @@ local ConstrainedSpring = {} do
 		}, ConstrainedSpring)
 	end
 
-	function ConstrainedSpring:Step(dt: number)
+	function ConstrainedSpring:step(dt: number)
 		local freq = self.freq :: number * 2 * pi -- Convert from Hz to rad/s
 		local x: number = self.x
 		local v: number = self.v
@@ -94,9 +94,9 @@ end
 local zoomDelta = 0
 
 local Zoom = {} do
-	function Zoom.Update(renderDt: number, focus: CFrame, extrapolation)
+	function Zoom.update(renderDt: number, focus: CFrame, extrapolation)
 		local poppedZoom = math.huge
-
+		
 		if zoomSpring.goal > DIST_OPAQUE then
 			-- Make a pessimistic estimate of zoom distance for this step without accounting for poppercam
 			local maxPossibleZoom = max(
@@ -115,19 +115,19 @@ local Zoom = {} do
 		zoomSpring.minValue = MIN_FOCUS_DIST
 		zoomSpring.maxValue = min(cameraMaxZoomDistance, poppedZoom)
 
-		return zoomSpring:Step(renderDt)
+		return zoomSpring:step(renderDt)
 	end
 
-	function Zoom.GetZoomRadius()
+	function Zoom.getZoomRadius()
 		return zoomSpring.x
 	end
 
-	function Zoom.SetZoomParameters(targetZoom, newZoomDelta)
+	function Zoom.setZoomParameters(targetZoom, newZoomDelta)
 		zoomSpring.goal = targetZoom
 		zoomDelta = newZoomDelta
 	end
 
-	function Zoom.ReleaseSpring()
+	function Zoom.releaseSpring()
 		zoomSpring.x = zoomSpring.goal
 		zoomSpring.v = 0
 	end

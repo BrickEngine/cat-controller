@@ -1,12 +1,8 @@
+local UserGameSettings = UserSettings():GetService("UserGameSettings")
 local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
-local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserGameSettings = UserSettings():GetService("UserGameSettings")
-local VRService = game:GetService("VRService")
-
-local FlagUtil = require(script.Parent.Common:WaitForChild("FlagUtil"))
-local FFlagUserCameraInputDt = FlagUtil.getUserFlag("UserCameraInputDt")
+local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
 
@@ -16,47 +12,15 @@ local MB_TAP_LENGTH = 0.3 -- (s) length of time for a short mouse button tap to 
 local ROTATION_SPEED_KEYS = math.rad(120) -- (rad/s)
 local ROTATION_SPEED_GAMEPAD = Vector2.new(1, 0.77)*math.rad(4) -- (rad/s)
 
--- these speeds should not be scaled by dt because the input returned is not normalized. 
--- that is, at lower framerates, the magnitude of the input delta will be larger because the pointer/mouse/touch
--- has moved more pixels between frames.
 local ROTATION_SPEED_MOUSE = Vector2.new(1, 0.77)*math.rad(0.5) -- (rad/inputdelta)
 local ROTATION_SPEED_POINTERACTION = Vector2.new(1, 0.77)*math.rad(7) -- (rad/inputdelta)
 local ROTATION_SPEED_TOUCH = Vector2.new(1, 0.66)*math.rad(1) -- (rad/inputdelta)
-
-if FFlagUserCameraInputDt then
-	ROTATION_SPEED_GAMEPAD *= 60 -- inline with FFlagUserCameraInputDt
-end
-
 
 local ZOOM_SPEED_MOUSE = 1 -- (scaled studs/wheel click)
 local ZOOM_SPEED_KEYS = 0.1 -- (studs/s)
 local ZOOM_SPEED_TOUCH = 0.04 -- (scaled studs/DIP %)
 
 local MIN_TOUCH_SENSITIVITY_FRACTION = 0.25 -- 25% sensitivity at 90°
-
-local FFlagUserResetTouchStateOnMenuOpen
-do
-	local success, result = pcall(function()
-		return UserSettings():IsUserFeatureEnabled("UserResetTouchStateOnMenuOpen")
-	end)
-	FFlagUserResetTouchStateOnMenuOpen = success and result
-end
-
-local FFlagUserClearPanOnCameraDisable
-do
-	local success, result = pcall(function()
-		return UserSettings():IsUserFeatureEnabled("UserClearPanOnCameraDisable")
-	end)
-	FFlagUserClearPanOnCameraDisable = success and result
-end
-
-local FFlagUserFixGamepadSensitivity
-do
-	local success, result = pcall(function()
-		return UserSettings():IsUserFeatureEnabled("UserFixGamepadSensitivity")
-	end)
-	FFlagUserFixGamepadSensitivity = success and result
-end
 
 -- right mouse button up & down events
 local rmbDown, rmbUp do
@@ -166,11 +130,6 @@ do
 		panInputCount = math.max(0, panInputCount - 1)
 	end
 
-	local function resetPanInputCount()
-		panInputCount = 0
-	end
-
-	local touchPitchSensitivity = 1
 	local gamepadState = {
 		Thumbstick2 = Vector2.new(),
 	}
@@ -193,11 +152,6 @@ do
 	
 	local gamepadZoomPressBindable = Instance.new("BindableEvent")
 	CameraInput.gamepadZoomPress = gamepadZoomPressBindable.Event
-
-	local gamepadResetBindable = VRService.VREnabled and Instance.new("BindableEvent") or nil
-	if VRService.VREnabled then
-		CameraInput.gamepadReset = gamepadResetBindable.Event
-	end
 	
 	function CameraInput.getRotationActivated(): boolean
 		return panInputCount > 0 or gamepadState.Thumbstick2.Magnitude > 0
@@ -207,23 +161,8 @@ do
 		local inversionVector = Vector2.new(1, UserGameSettings:GetCameraYInvertValue())
 
 		-- keyboard input is non-coalesced, so must account for time delta
-		local kKeyboard
-		if FFlagUserCameraInputDt then
-			kKeyboard = Vector2.new(keyboardState.Right - keyboardState.Left, 0) * dt
-		else
-			kKeyboard = Vector2.new(keyboardState.Right - keyboardState.Left, 0)*worldDt
-		end
-		local kGamepad -- inline with FFlagUserFixGamepadSensitivity
-		
-		if FFlagUserFixGamepadSensitivity then
-			kGamepad = gamepadState.Thumbstick2 * UserGameSettings.GamepadCameraSensitivity
-		else
-			kGamepad = gamepadState.Thumbstick2
-		end
-
-		if FFlagUserCameraInputDt then
-			kGamepad *= dt -- inline with FFlagUserCameraInputDt
-		end
+		local kKeyboard = Vector2.new(keyboardState.Right - keyboardState.Left, 0) * dt
+		local kGamepad = gamepadState.Thumbstick2 * UserGameSettings.GamepadCameraSensitivity * dt
 
 		local kMouse = mouseState.Movement
 		local kPointerAction = mouseState.Pan
@@ -276,12 +215,6 @@ do
 				gamepadZoomPressBindable:Fire()
 			end
 		end
-
-		local function gamepadReset(action, state, input)
-			if state == Enum.UserInputState.Begin then
-				gamepadResetBindable:Fire()
-			end
-		end
 		
 		local function resetInputDevices()
 			for _, device in pairs({
@@ -297,10 +230,6 @@ do
 						device[k] *= 0 -- Mul by zero to preserve vector types
 					end
 				end
-			end
-			
-			if FFlagUserClearPanOnCameraDisable then
-				resetPanInputCount()
 			end
 		end
 
@@ -398,9 +327,6 @@ do
 				touches = {}
 				dynamicThumbstickInput = nil
 				lastPinchDiameter = nil
-				if FFlagUserResetTouchStateOnMenuOpen then
-					resetPanInputCount()
-				end
 			end
 		end
 
@@ -469,15 +395,6 @@ do
 					Enum.KeyCode.I,
 					Enum.KeyCode.O
 				)
-
-				if VRService.VREnabled then
-					ContextActionService:BindAction(
-						"RbxCameraGamepadReset",
-						gamepadReset,
-						false,
-						Enum.KeyCode.ButtonL3
-					)
-				end
 				
 				ContextActionService:BindAction(
 					"RbxCameraGamepadZoom",
@@ -490,21 +407,13 @@ do
 				table.insert(connectionList, UserInputService.InputChanged:Connect(inputChanged))
 				table.insert(connectionList, UserInputService.InputEnded:Connect(inputEnded))
 				table.insert(connectionList, UserInputService.PointerAction:Connect(pointerAction))
-				if FFlagUserResetTouchStateOnMenuOpen then
-					local GuiService = game:GetService("GuiService")
-					table.insert(connectionList, GuiService.MenuOpened:connect(resetTouchState))
-				end
 
 			else -- disable
 				ContextActionService:UnbindAction("RbxCameraThumbstick")
 				ContextActionService:UnbindAction("RbxCameraMouseMove")
 				ContextActionService:UnbindAction("RbxCameraMouseWheel")
 				ContextActionService:UnbindAction("RbxCameraKeypress")
-
 				ContextActionService:UnbindAction("RbxCameraGamepadZoom")
-				if VRService.VREnabled then
-					ContextActionService:UnbindAction("RbxCameraGamepadReset")
-				end 
 
 				for _, conn in pairs(connectionList) do
 					conn:Disconnect()

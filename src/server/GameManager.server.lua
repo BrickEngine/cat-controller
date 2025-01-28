@@ -5,8 +5,8 @@ local Players = game:GetService("Players")
 local network = ReplicatedStorage.Network
 local RequtestSpawn = network.ClientToServer.RequestSpawn
 
-local Spawns = workspace.Spawns:GetChildren()
-
+local spawns = workspace.Spawns:GetChildren()
+local starterCharPreset = StarterPlayer.DefaultCharacter
 
 local function removePlayer(plr: Player)
 	if (plr.Character) then plr.Character:Destroy() end
@@ -21,11 +21,11 @@ local function plrCharConfig(plr: Player, mdl: Model, spawnPoint: SpawnLocation)
 end
 
 local function initPlrCharacter(Plr: Player)
-	local ActiveChar = StarterPlayer.StarterCharacter:Clone()
-	local SelectedSpawn = Spawns[math.random(1, #Spawns)]
+	local newCharacter = starterCharPreset:Clone()
+	local SelectedSpawn = spawns[math.random(1, #spawns)]
 	
-	plrCharConfig(Plr, ActiveChar, SelectedSpawn)
-	return ActiveChar
+	plrCharConfig(Plr, newCharacter, SelectedSpawn)
+	return newCharacter
 end
 
 local function handleSpawnRequest(plr: Player)
