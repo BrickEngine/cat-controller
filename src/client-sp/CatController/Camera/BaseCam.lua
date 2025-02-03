@@ -462,7 +462,7 @@ end
 function BaseCamera:getMeasuredDistanceToFocus(): number?
 	local camera = game.Workspace.CurrentCamera
 	if camera then
-		return (camera.CoordinateFrame.p - camera.Focus.p).magnitude
+		return (camera.CFrame.Position - camera.Focus.Position).magnitude
 	end
 	return nil
 end
@@ -496,11 +496,11 @@ end
 function BaseCamera:calculateNewLookVectorVRFromArg(rotateInput: Vector2): Vector3
 	local subjectPosition: Vector3 = self:getSubjectPosition()
 	local vecToSubject: Vector3 = (subjectPosition - (game.Workspace.CurrentCamera :: Camera).CFrame.Position)
-	local currLookVector: Vector3 = (vecToSubject * X1_Y0_Z1).unit
+	local currLookVector: Vector3 = (vecToSubject * X1_Y0_Z1).Unit
 	local vrRotateInput: Vector2 = Vector2.new(rotateInput.X, 0)
 	local startCFrame: CFrame = CFrame.new(VEC3_ZERO, currLookVector)
 	local yawRotatedVector: Vector3 = (CFrame.Angles(0, -vrRotateInput.X, 0) * startCFrame * CFrame.Angles(-vrRotateInput.Y,0,0)).LookVector
-	return (yawRotatedVector * X1_Y0_Z1).unit
+	return (yawRotatedVector * X1_Y0_Z1).Unit
 end
 
 function BaseCamera:onNewCameraSubject()

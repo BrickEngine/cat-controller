@@ -5,9 +5,7 @@ local tweenSpeed = math.rad(0)          -- Radians/Second
 local tweenMaxSpeed = math.rad(250)     -- Radians/Second
 
 local INITIAL_CAMERA_ANGLE = CFrame.fromOrientation(math.rad(-15), 0, 0)
-
---local FFlagUserFixCameraOffsetJitter = FlagUtil.getUserFlag("UserFixCameraOffsetJitter2")
---local FFlagUserFixCameraFPError = FlagUtil.getUserFlag("UserFixCameraFPError")
+local SMOOTH_DELTA = 0.08
 
 local Util = require(script.Parent.CamUtils)
 local CamInput = require(script.Parent.CamInput)
@@ -22,27 +20,22 @@ function ClassicCamera.new()
 	self.isFollowCamera = false
 	self.isCameraToggle = false
 	self.lastUpdate = tick()
-	self.cameraToggleSpring = Util.Spring.new(5, 0)
+	--self.cameraToggleSpring = Util.Spring.new(5, 0)
 
 	return self
 end
 
-function ClassicCamera:getCameraToggleOffset(dt: number)
-	if self.isCameraToggle then
-		local zoom = self.currentSubjectDistance
+-- function ClassicCamera:getCameraToggleOffset(dt: number)
+-- 	if self.isCameraToggle then
+-- 		local zoom = self.currentSubjectDistance
+-- 		self.cameraToggleSpring.goal = 0
 
-		if CamInput.getTogglePan() then
-			self.cameraToggleSpring.goal = math.clamp(Util.map(zoom, 0.5, self.FIRST_PERSON_DISTANCE_THRESHOLD, 0, 1), 0, 1)
-		else
-			self.cameraToggleSpring.goal = 0
-		end
+-- 		local distanceOffset: number = math.clamp(Util.map(zoom, 0.5, 64, 0, 1), 0, 1) + 1
+-- 		return Vector3.new(0, self.cameraToggleSpring:step(dt)*distanceOffset, 0)
+-- 	end
 
-		local distanceOffset: number = math.clamp(Util.map(zoom, 0.5, 64, 0, 1), 0, 1) + 1
-		return Vector3.new(0, self.cameraToggleSpring:step(dt)*distanceOffset, 0)
-	end
-
-	return Vector3.new()
-end
+-- 	return Vector3.new()
+-- end
 
 -- Movement mode standardized to Enum.ComputerCameraMovementMode values
 function ClassicCamera:setCameraMovementMode(cameraMovementMode: Enum.ComputerCameraMovementMode)
@@ -77,6 +70,9 @@ function ClassicCamera:update(dt)
 	end
 
 	local rotateInput = CamInput.getRotation(dt)
+	if (rotateInput.Magnitude > 1) then
+		rotateInput = rotateInput.Unit
+	end
 	self:stepZoom()
 
 	-- Reset tween speed if user is panning
@@ -88,6 +84,8 @@ function ClassicCamera:update(dt)
 
 	if subjectPosition and player and camera then
 		local zoom = self:getCameraToSubjectDistance()
+		local currCamVel = self.camVelocity
+
 		if zoom < 0.5 then
 			zoom = 0.5
 		end
@@ -103,48 +101,15 @@ function ClassicCamera:update(dt)
 			if Util.IsFiniteVector3(cameraRelativeOffset) then
 				subjectPosition = subjectPosition + cameraRelativeOffset
 			end
-		else
-			local userPanningTheCamera = rotateInput ~= Vector2.new()
-
-			if not (userPanningTheCamera and self.lastCameraTransform) then
-				if (self.isFollowCamera) then
-					-- Logic that was unique to the old FollowCamera module
-					local lastVec = -(self.lastCameraTransform.p - subjectPosition)
-					local y = Util.getAngleBetweenXZVectors(lastVec, self:getCameraLookVector())
-					local thetaCutoff = 0.4
-
-					-- Check for NaNs
-					if Util.IsFinite(y) and math.abs(y) > 0.0001 and math.abs(y) > thetaCutoff * dt then
-						rotateInput = rotateInput + Vector2.new(y, 0)
-					end
-				end
-			end
 		end
 
-		if not self.isFollowCamera then
-			newCameraFocus = CFrame.new(subjectPosition)
+		newCameraFocus = CFrame.new(subjectPosition)
+		local newLookVector = self:calculateNewLookVectorFromArg(overrideCameraLookVector, rotateInput)
+		newCameraCFrame = CFrame.lookAlong(newCameraFocus.Position - (zoom * newLookVector), newLookVector)
 
-			local cameraFocusP = newCameraFocus.p
-			local newLookVector = self:calculateNewLookVectorFromArg(overrideCameraLookVector, rotateInput)
-			-- if FFlagUserFixCameraFPError then
-			newCameraCFrame = CFrame.lookAlong(cameraFocusP - (zoom * newLookVector), newLookVector)
-			-- else
-			-- 	newCameraCFrame = CFrame.new(cameraFocusP - (zoom * newLookVector), cameraFocusP)
-			-- end
-		else -- is FollowCamera
-			local newLookVector = self:calculateNewLookVectorFromArg(overrideCameraLookVector, rotateInput)
-
-			newCameraFocus = CFrame.new(subjectPosition)
-			-- if FFlagUserFixCameraFPError then
-			newCameraCFrame = CFrame.lookAlong(newCameraFocus.Position - (zoom * newLookVector), newLookVector)
-			-- else
-			-- 	newCameraCFrame = CFrame.new(newCameraFocus.p - (zoom * newLookVector), newCameraFocus.p) + Vector3.new(0, cameraHeight, 0)
-			-- end
-		end
-
-		local toggleOffset = self:getCameraToggleOffset(dt)
-		newCameraFocus = newCameraFocus + toggleOffset
-		newCameraCFrame = newCameraCFrame + toggleOffset
+		-- local toggleOffset = self:getCameraToggleOffset(dt)
+		-- newCameraFocus = newCameraFocus + toggleOffset
+		-- newCameraCFrame = newCameraCFrame + toggleOffset
 
 		self.lastCameraTransform = newCameraCFrame
 		self.lastCameraFocus = newCameraFocus

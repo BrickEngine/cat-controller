@@ -1,6 +1,8 @@
 local simStates = script.Parent.SimStates
 
-local BaseState = require(simStates.BaseState)
+local BaseState = require(simStates.BaseState) :: any
+local BaseMoveInput = require(script.Parent.BaseMoveInput) :: any
+
 local Ground = require(simStates.Ground) :: BaseState.BaseStateType
 local Water = require(simStates.Water) :: BaseState.BaseStateType
 local Air = require(simStates.Air) :: BaseState.BaseStateType
@@ -11,26 +13,26 @@ export type StateMachineType = {
     resetRefs: (StateMachineType, Model) -> (),
     update: (StateMachineType, dt: number) -> (),
 
+    input: BaseMoveInput.BaseMoveInputType,
     character: Model,
-    input: any,
-    states: {[any]: BaseState.BaseStateType},
-    currentState: BaseState.BaseStateType
+    currentState: BaseState.BaseStateType,
+    states: {[any]: BaseState.BaseStateType}
 }
 
 local Statemachine = {}
 Statemachine.__index = Statemachine
 
-function Statemachine.new(character: Model, input: any)
+function Statemachine.new(character: Model, inpModule: BaseMoveInput.BaseMoveInputType)
     local self = setmetatable({} :: StateMachineType, Statemachine)
 
+    self.input = inpModule
     self.character = character
-    self.input = input
+    self.currentState = Ground
     self.states = {
         Ground = Ground.new(self),
         --Water = Water.new(self),
         --Air = Air.new(self)
     }
-    self.currentState = Ground
 
     self.currentState:stateEnter()
 

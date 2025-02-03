@@ -15,7 +15,7 @@ local BaseState = {} :: BaseStateType
 function BaseState.new(stateMachine)
     local self = setmetatable({} :: BaseStateType, BaseState)
     
-    self.stateMachine = stateMachine
+    self._stateMachine = stateMachine
 
     return self :: any;
 end

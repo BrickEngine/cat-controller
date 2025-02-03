@@ -7,6 +7,7 @@ function Controller.new()
     local self = setmetatable({}, Controller)
 
     self.simulation = require(script.Simulation)
+    self.camera = require(script.Camera)
 
     return self
 end

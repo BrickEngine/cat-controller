@@ -7,22 +7,21 @@ local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
 local CAMERA_INPUT_PRIORITY = Enum.ContextActionPriority.Medium.Value
-local MB_TAP_LENGTH = 0.3 -- (s) length of time for a short mouse button tap to be registered
+local MB_TAP_LENGTH = 0.3
 
-local ROTATION_SPEED_KEYS = math.rad(120) -- (rad/s)
-local ROTATION_SPEED_GAMEPAD = Vector2.new(1, 0.77)*math.rad(4) -- (rad/s)
+local ROTATION_SPEED_KEYS = math.rad(120)
+local ROTATION_SPEED_GAMEPAD = Vector2.new(1, 0.77)*math.rad(4)
+local ROTATION_SPEED_MOUSE = Vector2.new(1, 0.77)*math.rad(0.5)
+local ROTATION_SPEED_POINTERACTION = Vector2.new(1, 0.77)*math.rad(7)
+local ROTATION_SPEED_TOUCH = Vector2.new(1, 0.66)*math.rad(1)
+local ROTATION_SPEED_MULT = 2.0
 
-local ROTATION_SPEED_MOUSE = Vector2.new(1, 0.77)*math.rad(0.5) -- (rad/inputdelta)
-local ROTATION_SPEED_POINTERACTION = Vector2.new(1, 0.77)*math.rad(7) -- (rad/inputdelta)
-local ROTATION_SPEED_TOUCH = Vector2.new(1, 0.66)*math.rad(1) -- (rad/inputdelta)
-
-local ZOOM_SPEED_MOUSE = 1 -- (scaled studs/wheel click)
-local ZOOM_SPEED_KEYS = 0.1 -- (studs/s)
-local ZOOM_SPEED_TOUCH = 0.04 -- (scaled studs/DIP %)
+local ZOOM_SPEED_MOUSE = 1
+local ZOOM_SPEED_KEYS = 0.1
+local ZOOM_SPEED_TOUCH = 0.04
 
 local MIN_TOUCH_SENSITIVITY_FRACTION = 0.25 -- 25% sensitivity at 90°
 
--- right mouse button up & down events
 local rmbDown, rmbUp do
 	local rmbDownBindable = Instance.new("BindableEvent")
 	local rmbUpBindable = Instance.new("BindableEvent")
@@ -44,23 +43,16 @@ local rmbDown, rmbUp do
 end
 
 local thumbstickCurve do
-	local K_CURVATURE = 2 -- amount of upwards curvature (0 is flat)
-	local K_DEADZONE = 0.1 -- deadzone
+	local K_CURVATURE = 2
+	local K_DEADZONE = 0.1
 
 	function thumbstickCurve(x)
-		-- remove sign, apply linear deadzone
 		local fDeadzone = (math.abs(x) - K_DEADZONE)/(1 - K_DEADZONE)
-		
-		-- apply exponential curve and scale to fit in [0, 1]
 		local fCurve = (math.exp(K_CURVATURE*fDeadzone) - 1)/(math.exp(K_CURVATURE) - 1)
-		
-		-- reapply sign and clamp
 		return math.sign(x)*math.clamp(fCurve, 0, 1)
 	end
 end
 
--- Adjust the touch sensitivity so that sensitivity is reduced when swiping up
--- or down, but stays the same when swiping towards the middle of the screen
 local function adjustTouchPitchSensitivity(delta: Vector2): Vector2
 	local camera = workspace.CurrentCamera
 
@@ -68,20 +60,12 @@ local function adjustTouchPitchSensitivity(delta: Vector2): Vector2
 		return delta
 	end
 	
-	-- get the camera pitch in world space
 	local pitch = camera.CFrame:ToEulerAnglesYXZ()
-	
 	if delta.Y*pitch >= 0 then
-		-- do not reduce sensitivity when pitching towards the horizon
 		return delta
 	end
 	
-	-- set up a line to fit:
-	-- 1 = f(0)
-	-- 0 = f(±pi/2)
 	local curveY = 1 - (2*math.abs(pitch)/math.pi)^0.75
-
-	-- remap curveY from [0, 1] -> [MIN_TOUCH_SENSITIVITY_FRACTION, 1]
 	local sensitivity = curveY*(1 - MIN_TOUCH_SENSITIVITY_FRACTION) + MIN_TOUCH_SENSITIVITY_FRACTION
 
 	return Vector2.new(1, sensitivity)*delta
@@ -134,6 +118,7 @@ do
 		Thumbstick2 = Vector2.new(),
 	}
 	local keyboardState = {
+		LeftControl = 0,
 		Left = 0,
 		Right = 0,
 		I = 0,
@@ -168,16 +153,19 @@ do
 		local kPointerAction = mouseState.Pan
 		local kTouch = adjustTouchPitchSensitivity(touchState.Move)
 
-		if disableKeyboardRotation then
+		if (keyboardState.LeftControl == 1) then
+			kKeyboard *= ROTATION_SPEED_MULT
+		end
+		if (disableKeyboardRotation) then
 			kKeyboard = Vector2.new()
 		end
 
 		local result =
-			kKeyboard*ROTATION_SPEED_KEYS +
-			kGamepad*ROTATION_SPEED_GAMEPAD +
-			kMouse*ROTATION_SPEED_MOUSE +
-			kPointerAction*ROTATION_SPEED_POINTERACTION +
-			kTouch*ROTATION_SPEED_TOUCH
+			kKeyboard * ROTATION_SPEED_KEYS +
+			kGamepad * ROTATION_SPEED_GAMEPAD +
+			kMouse * ROTATION_SPEED_MOUSE +
+			kPointerAction * ROTATION_SPEED_POINTERACTION +
+			kTouch * ROTATION_SPEED_TOUCH
 
 		return result*inversionVector
 	end
@@ -199,11 +187,6 @@ do
 		local function mouseMovement(input)
 			local delta = input.Delta
 			mouseState.Movement = Vector2.new(delta.X, delta.Y)
-		end
-		
-		local function mouseWheel(action, state, input)
-			mouseState.Wheel = input.Position.Z
-			return Enum.ContextActionResult.Pass
 		end
 		
 		local function keypress(action, state, input)
@@ -390,6 +373,7 @@ do
 					keypress,
 					false,
 					CAMERA_INPUT_PRIORITY,
+					Enum.KeyCode.LeftControl,
 					Enum.KeyCode.Left,
 					Enum.KeyCode.Right,
 					Enum.KeyCode.I,

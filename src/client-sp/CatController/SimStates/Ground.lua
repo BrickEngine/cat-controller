@@ -23,7 +23,7 @@ function Ground:leaveState()
 end
 
 function Ground:update(dt: number)
-    
+    print("player is on ground hehehaha")
 end
 
 return Ground
