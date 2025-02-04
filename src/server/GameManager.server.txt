@@ -33,7 +33,7 @@ local function handleSpawnRequest(plr: Player)
 		warn(tostring(plr.Name).." attempted to spawn with active character") return
 		--Plr.Character:Destroy()
 	end
-	local Char = initPlrCharacter(plr)
+	initPlrCharacter(plr)
 end
 
 local function onPlayerJoin(plr: Player)

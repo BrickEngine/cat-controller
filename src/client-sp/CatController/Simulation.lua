@@ -17,13 +17,16 @@ function Simulation.new()
 
     self.character = nil
     self.activeControl = nil
-    self.stateMachine = StateMachine.new(self.character, self.activeControl)
+    self.stateMachine = nil
 
     Players.LocalPlayer.CharacterAdded:Connect(function(char) self:onCharAdded(char) end)
     Players.LocalPlayer.CharacterRemoving:Connect(function(char) self:onCharRemoving(char) end)
     if Players.LocalPlayer.Character then
 		self:onCharAdded(Players.LocalPlayer.Character)
 	end
+
+    self:setInputType()
+    self:initStateMachine()
 
     RunService:BindToRenderStep("SimulationRSUpdate", RENDER_PRIO, function(dt) 
         self:update(dt) 
@@ -50,12 +53,20 @@ function Simulation:onCharRemoving()
     --StateMachine:resetRefs(nil)
 end
 
-function Simulation:getInputType(): boolean
+function Simulation:setInputType(): boolean
     if (UserInputService.TouchEnabled) then
         self.activeControl = nil
     else
         self.activeControl = MoveKeyboard
     end
+end
+
+function Simulation:initStateMachine()
+    if (self.stateMachine) then
+        return
+    end
+
+    self.stateMachine = StateMachine.new(self.character, self.activeControl)
 end
 
 local simulationObject = Simulation.new()

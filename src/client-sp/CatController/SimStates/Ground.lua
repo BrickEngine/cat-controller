@@ -14,11 +14,11 @@ function Ground.new(stateMachine)
     return self :: BaseState.BaseStateType
 end
 
-function Ground:enterState()
-
+function Ground:stateEnter()
+    print("I AM ENTERING THE STOOD HEHEHE")
 end
 
-function Ground:leaveState()
+function Ground:stateLeave()
     
 end
 

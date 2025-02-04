@@ -1,7 +1,7 @@
 local simStates = script.Parent.SimStates
 
-local BaseState = require(simStates.BaseState) :: any
-local BaseMoveInput = require(script.Parent.BaseMoveInput) :: any
+local BaseState = require(simStates.BaseState)
+local BaseMoveInput = require(script.Parent.BaseMoveInput)
 
 local Ground = require(simStates.Ground) :: BaseState.BaseStateType
 local Water = require(simStates.Water) :: BaseState.BaseStateType
@@ -29,14 +29,23 @@ function Statemachine.new(character: Model, inpModule: BaseMoveInput.BaseMoveInp
     self.character = character
     self.currentState = Ground
     self.states = {
-        Ground = Ground.new(self),
-        --Water = Water.new(self),
-        --Air = Air.new(self)
+        Ground = Ground.new(Statemachine),
+        Water = Water.new(Statemachine),
+        Air = Air.new(Statemachine)
     }
 
     self.currentState:stateEnter()
 
     return self
+end
+
+function Statemachine:reset()
+    if (self.currentState) then
+        self.currentState:stateLeave()
+    end
+
+    self.currentState = Ground
+    self.currentState:stateEnter()
 end
 
 function Statemachine:transitionState(newState: BaseState.BaseStateType)
@@ -58,11 +67,9 @@ function Statemachine:resetRefs(character: Model)
 end
 
 function Statemachine:update(dt: number)
-    if (not self.character) then
-        warn("no ref to character") return
+    if (self.character and self.currentState.update) then
+        self.currentState:update(dt)
     end
-
-    self.currentState:update(dt)
 end
 
 return Statemachine

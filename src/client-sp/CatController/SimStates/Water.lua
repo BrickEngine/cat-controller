@@ -11,11 +11,11 @@ function Water.new(...)
     return self :: BaseState.BaseStateType
 end
 
-function Water:enterState()
-    
+function Water:stateEnter()
+
 end
 
-function Water:leaveState()
+function Water:stateLeave()
     
 end
 
