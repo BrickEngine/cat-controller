@@ -1,29 +1,34 @@
 local Workspace = game:GetService("Workspace")
 
-local BaseState = require(script.Parent.BaseState)
+local Controller = script.Parent.Parent
+local BaseState = require(Controller.SimStates.BaseState)
+local physCheck = require(Controller.Common.PhysCheck)
 
 local Ground = setmetatable({}, BaseState)
 Ground.__index = Ground
 
-function Ground.new(stateMachine)
-    local self = setmetatable(BaseState.new(stateMachine) :: BaseState.BaseStateType, Ground)
+local function getWalkInput()
     
-    self.stateMachine = stateMachine
-    self.physCheck = nil
-
-    return self :: BaseState.BaseStateType
 end
 
-function Ground:stateEnter()
-    print("I AM ENTERING THE STOOD HEHEHE")
+function Ground.new(stateMachine)
+    local self = setmetatable(BaseState.new(stateMachine) :: BaseState.BaseStateType, Ground)
+
+    self.character = self.character :: Model
+
+    return self
+end
+
+function Ground:stateEnter(oldState: BaseState.BaseStateType)
+    print("I AM GROUND")
 end
 
 function Ground:stateLeave()
-    
+    print("BAIBAI")
 end
 
 function Ground:update(dt: number)
-    print("player is on ground hehehaha")
+   -- print(self._stateMachine._input)
 end
 
 return Ground

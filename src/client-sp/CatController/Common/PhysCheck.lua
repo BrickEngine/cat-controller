@@ -61,7 +61,12 @@ function Phys.createForces(mdl:Model)
 	return vertVecForce, horVecForce
 end
 
-function Phys.colliderCast(rayCenterPos:Vector3, radius, hipHeight, rayParams:RaycastParams, currVel:Vector3)
+function Phys.colliderCast(
+	rayCenterPos:Vector3, 
+	radius, hipHeight, 
+	rayParams:RaycastParams, 
+	currVel:Vector3
+)
 	local rayArr = {}
 	local boundPts = math.round(ALPHA * math.sqrt(NUM_RAYS))
 	local grounded = false

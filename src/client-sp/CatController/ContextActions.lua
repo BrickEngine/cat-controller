@@ -1,6 +1,6 @@
 local Actions = {
     -- movement
-    MOVE_L = "moveFAction",
+    MOVE_L = "moveLAction",
     MOVE_R = "moveRAction",
     MOVE_F = "moveFAction",
     MOVE_B = "moveBAction",

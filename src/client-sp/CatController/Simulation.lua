@@ -9,14 +9,22 @@ local MoveTouch = nil -- TODO
 
 local RENDER_PRIO = 100
 
+local INPUT_TYPES = {
+    moveKeyboard = "MoveKeyboard",
+    moveTouch = "MoveTouch"
+}
+
 local Simulation = {}
 Simulation.__index = Simulation
 
 function Simulation.new()
     local self = setmetatable({}, Simulation)
 
-    self.character = nil
-    self.activeControl = nil
+    self.inputModules = {}
+    self.inputModules[INPUT_TYPES.moveKeyboard] = MoveKeyboard.new(RENDER_PRIO)
+
+    self.character = Players.LocalPlayer.Character
+    self.activeInputModule = nil
     self.stateMachine = nil
 
     Players.LocalPlayer.CharacterAdded:Connect(function(char) self:onCharAdded(char) end)
@@ -25,11 +33,13 @@ function Simulation.new()
 		self:onCharAdded(Players.LocalPlayer.Character)
 	end
 
-    self:setInputType()
+    -------------------------------------------------------------------------------------
+
+    self:initMoveInpControl()
     self:initStateMachine()
 
-    RunService:BindToRenderStep("SimulationRSUpdate", RENDER_PRIO, function(dt) 
-        self:update(dt) 
+    RunService:BindToRenderStep("SimulationRSUpdate", RENDER_PRIO, function(dt)
+        self:update(dt)
     end)
 
 	UserInputService.LastInputTypeChanged:Connect(function(newLastInputType)
@@ -39,25 +49,36 @@ function Simulation.new()
     return self
 end
 
-function Simulation:update()
-    
+function Simulation:update(dt: number)
+    self.stateMachine:update(dt)
+    print(self:getActiveInputModule():getMoveVec())
 end
 
 function Simulation:onCharAdded(character)
     self.character = character
-    StateMachine:resetRefs(character)
+    self.stateMachine:resetRefs(character)
 end
 
 function Simulation:onCharRemoving()
-    self.character = nil
-    --StateMachine:resetRefs(nil)
+    --self.character = nil
+    --self.stateMachine:resetRefs(nil)
 end
 
-function Simulation:setInputType(): boolean
-    if (UserInputService.TouchEnabled) then
-        self.activeControl = nil
+function Simulation:getActiveInputModule(): any
+    return self.inputModules[self.activeInputModule]
+end
+
+function Simulation:initMoveInpControl(): boolean
+    if (UserInputService.KeyboardEnabled) then
+        self.activeInputModule = INPUT_TYPES.moveKeyboard
+    elseif (UserInputService.TouchEnabled) then
+        self.activeInputModule = nil -- TODO
     else
-        self.activeControl = MoveKeyboard
+        self.activeInputModule = nil
+    end
+
+    if (self.activeInputModule) then
+        self:getActiveInputModule():enable(true)
     end
 end
 
@@ -66,8 +87,7 @@ function Simulation:initStateMachine()
         return
     end
 
-    self.stateMachine = StateMachine.new(self.character, self.activeControl)
+    self.stateMachine = StateMachine.new(self.character, self:getActiveInputModule())
 end
 
-local simulationObject = Simulation.new()
-return simulationObject
+return Simulation.new()

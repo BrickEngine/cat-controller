@@ -1,3 +1,4 @@
+--!strict
 -- Utility module for handling RBXScriptConnections. This module is used to track connections and disconnect them when needed.
 
 type ConnectionUtilClass = {
@@ -55,7 +56,7 @@ function ConnectionUtil:disconnectAll()
 	for _, disconnectFunc in pairs(self._connections) do
 		disconnectFunc()
 	end
-	self._connections = {} -- Clear all connections
+	self._connections = {}
 end
 
 return ConnectionUtil

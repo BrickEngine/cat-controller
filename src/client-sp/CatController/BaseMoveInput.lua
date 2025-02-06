@@ -1,3 +1,4 @@
+--!strict
 -- Abstract base class for character controller input.
 
 local ConnectionUtil = require(script.Parent.Common.ConnectionUtil)
@@ -5,12 +6,16 @@ local ConnectionUtil = require(script.Parent.Common.ConnectionUtil)
 export type BaseMoveInputType  = {
     new: () -> BaseMoveInputType,
     getMoveVec: (BaseMoveInputType) -> Vector3,
-    enable: (BaseMoveInputType) -> boolean,
+    getIsJumping: (BaseMoveInputType) -> boolean,
+    getIsRunning: (BaseMoveInputType) -> boolean,
+    enable: (BaseMoveInputType, enable: boolean) -> boolean,
+
+    _connectionUtil: any,
 
     enabled: boolean,
     isJumping: boolean,
-    moveVec: Vector3,
-    _connectionUtil: any
+    isRunning: boolean,
+    moveVec: Vector3
 }
 
 local VEC3_ZERO = Vector3.zero
@@ -21,10 +26,12 @@ local BaseMoveInput = {} :: BaseMoveInputType
 function BaseMoveInput.new()
     local self = setmetatable({}, BaseMoveInput)
 
+    self._connectionUtil = ConnectionUtil.new()
+
     self.enabled = false
-    self.jumpInp = false
+    self.isJumping = false
+    self.isRunning = false
     self.moveVec = VEC3_ZERO
-    self.__connectionUtil = ConnectionUtil.new()
 
     return self :: any
 end
@@ -33,7 +40,16 @@ function BaseMoveInput:getMoveVec(): Vector3
     return self.moveVec
 end
 
-function BaseMoveInput:init(): boolean
+function BaseMoveInput:getIsJumping(): boolean
+    return self.isJumping
+end
+
+function BaseMoveInput:getIsRunning(): boolean
+    return self.isRunning
+end
+
+function BaseMoveInput:enable(enable: boolean): boolean
+    error("cannot enable abstract class BaseMoveInput", 2)
     return false
 end
 

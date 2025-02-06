@@ -1,11 +1,8 @@
+local Players = game:GetService("Players")
 -- Keyboard controls
 
--- self.enabled = false
--- self.jumpDown = false
--- self.moveVec = VEC3_ZERO
--- self.__connectionUtil = ConnectionUtil.new()
-
-ContextActionService = game:GetService("ContextActionService")
+local ContextActionService = game:GetService("ContextActionService")
+local UserInputService = game:GetService("UserInputService")
 
 local BaseMoveInput = require(script.Parent.BaseMoveInput)
 local ContextActions = require(script.Parent.ContextActions)
@@ -19,31 +16,52 @@ local KEY_UP = Enum.KeyCode.Up
 local KEY_DOWN = Enum.KeyCode.Down
 local KEY_JUMP = Enum.KeyCode.Space
 
-local MoveKeyboard = {}
+local MoveKeyboard = setmetatable({}, BaseMoveInput)
 MoveKeyboard.__index = MoveKeyboard
 
-function MoveKeyboard.new(CONTROL_PRIORITY)
+function MoveKeyboard.new(CONTROL_PRIORITY: number)
     local self = setmetatable(BaseMoveInput.new() :: any, MoveKeyboard)
 
-    self.CONTROL_PRIORITY = CONTROL_PRIORITY
+    self.CONTROL_PRIORITY = CONTROL_PRIORITY :: number
 
-    self.f_val = 0
-    self.b_val = 0
-    self.l_val = 0
-    self.r_val = 0
+    self.f_val = 0 :: number
+    self.b_val = 0 :: number
+    self.l_val = 0 :: number
+    self.r_val = 0 :: number
+	self.jumpInp = false :: boolean
+	self.runInp = false :: boolean
 
     return self
 end
 
-function MoveKeyboard:enable()
-    if (self.enable) then
+function MoveKeyboard:enable(enable: boolean)
+    if (enable == self.enabled) then
         return true
     end
 
-    self.f_val, self.b_val, self.l_val, self.r_val, self.jumpInp = 0, 0, 0, 0, 0
+    self.f_val, self.b_val, self.l_val, self.r_val = 0, 0, 0, 0
+	self.jumpInp, self.runInp = false, false
     self.moveVec = VEC3_ZERO
+	self.isJumping = false
+	self.isRunning = false
+
+	if (enable) then
+		self:bindActions()
+		self:connectFocusEventListeners()
+	else
+		self._connectionUtil:disconnectAll()
+	end
+	self.enabled = true
 
     return true
+end
+
+function MoveKeyboard:updateSprint()
+	self.isRunning = self.runInp
+end
+
+function MoveKeyboard:updateJump()
+	self.isJumping = self.jumpInp
 end
 
 function MoveKeyboard:updateInputVec(inputState: Enum.UserInputState)
@@ -66,33 +84,63 @@ function MoveKeyboard:bindActions()
 		return Enum.ContextActionResult.Pass
 	end
 	local handleMoveLeft = function(actionName, inputState, inputObject)
-		self.l_val = (inputState == Enum.UserInputState.Begin) and 1 or 0
+		self.l_val = (inputState == Enum.UserInputState.Begin) and -1 or 0
 		self:updateInputVec(inputState)
 		return Enum.ContextActionResult.Pass
 	end
 	local handleMoveRight = function(actionName, inputState, inputObject)
-		self.r_val = (inputState == Enum.UserInputState.Begin) and -1 or 0
+		self.r_val = (inputState == Enum.UserInputState.Begin) and 1 or 0
 		self:updateInputVec(inputState)
 		return Enum.ContextActionResult.Pass
 	end
 	local handleJumpAction = function(actionName, inputState, inputObject)
-		self.jumpInp = (inputState == Enum.UserInputState.Begin) and 1 or 0
+		self.jumpInp = (inputState == Enum.UserInputState.Begin)
+		self:updateJump()
 		return Enum.ContextActionResult.Pass
 	end
 
-	ContextActionService:BindActionAtPriority(ContextActions.MOVE_F, handleMoveForward, false, self.CONTROL_PRIORITY, KEY_W)
-    ContextActionService:BindActionAtPriority(ContextActions.MOVE_F, handleMoveForward, false, self.CONTROL_PRIORITY, KEY_UP)
-	ContextActionService:BindActionAtPriority(ContextActions.MOVE_B, handleMoveBackward, false, self.CONTROL_PRIORITY, KEY_S)
-    ContextActionService:BindActionAtPriority(ContextActions.MOVE_F, handleMoveForward, false, self.CONTROL_PRIORITY, KEY_DOWN)
+	ContextActionService:BindActionAtPriority(ContextActions.MOVE_F, handleMoveForward, false, self.CONTROL_PRIORITY, KEY_W, KEY_UP)
+	ContextActionService:BindActionAtPriority(ContextActions.MOVE_B, handleMoveBackward, false, self.CONTROL_PRIORITY, KEY_S, KEY_DOWN)
 	ContextActionService:BindActionAtPriority(ContextActions.MOVE_L, handleMoveLeft, false, self.CONTROL_PRIORITY, KEY_A)
 	ContextActionService:BindActionAtPriority(ContextActions.MOVE_R, handleMoveRight, false, self.CONTROL_PRIORITY, KEY_D)
 	ContextActionService:BindActionAtPriority(ContextActions.JUMP, handleJumpAction, false, self.CONTROL_PRIORITY, KEY_JUMP)
-	
+
 	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_F, function() ContextActionService:UnbindAction(ContextActions.MOVE_F) end)
 	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_B, function() ContextActionService:UnbindAction(ContextActions.MOVE_B) end)
 	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_L, function() ContextActionService:UnbindAction(ContextActions.MOVE_L) end)
 	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_R, function() ContextActionService:UnbindAction(ContextActions.MOVE_R) end)
 	self._connectionUtil:trackBoundFunction(ContextActions.JUMP, function() ContextActionService:UnbindAction(ContextActions.JUMP) end)
+end
+
+function MoveKeyboard:connectFocusEventListeners()
+	local function onFocusReleased()
+		self.moveVector = VEC3_ZERO
+		self.f_val = 0
+		self.b_val = 0
+		self.l_val = 0
+		self.r_val = 0
+		self.jumpInp = false
+		self.runInp = false
+
+		self:updateJump()
+		self:updateSprint()
+	end
+
+	local function onTextFocusGained(textboxFocused)
+		self.jumpInp = false
+		self.runInp = false
+		self.f_val = 0
+		self.b_val = 0
+		self.l_val = 0
+		self.r_val = 0
+		self.moveVector = VEC3_ZERO
+		self:updateJump()
+		self:updateSprint()
+	end
+
+	self._connectionUtil:trackConnection("textBoxFocusReleased", UserInputService.TextBoxFocusReleased:Connect(onFocusReleased))
+	self._connectionUtil:trackConnection("textBoxFocused", UserInputService.TextBoxFocused:Connect(onTextFocusGained))
+	self._connectionUtil:trackConnection("windowFocusReleased", UserInputService.WindowFocused:Connect(onFocusReleased))
 end
 
 return MoveKeyboard

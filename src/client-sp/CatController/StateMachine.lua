@@ -1,7 +1,7 @@
 local simStates = script.Parent.SimStates
 
 local BaseState = require(simStates.BaseState)
-local BaseMoveInput = require(script.Parent.BaseMoveInput)
+--local BaseMoveInput = require(script.Parent.BaseMoveInput)
 
 local Ground = require(simStates.Ground) :: BaseState.BaseStateType
 local Water = require(simStates.Water) :: BaseState.BaseStateType
@@ -13,7 +13,7 @@ export type StateMachineType = {
     resetRefs: (StateMachineType, Model) -> (),
     update: (StateMachineType, dt: number) -> (),
 
-    input: BaseMoveInput.BaseMoveInputType,
+    _input: any,
     character: Model,
     currentState: BaseState.BaseStateType,
     states: {[any]: BaseState.BaseStateType}
@@ -22,17 +22,17 @@ export type StateMachineType = {
 local Statemachine = {}
 Statemachine.__index = Statemachine
 
-function Statemachine.new(character: Model, inpModule: BaseMoveInput.BaseMoveInputType)
-    local self = setmetatable({} :: StateMachineType, Statemachine)
+function Statemachine.new(character: Model, _input: any)
+    local self = setmetatable({}, Statemachine)
 
-    self.input = inpModule
-    self.character = character
-    self.currentState = Ground
+    self._input = _input
+    self.character = character :: Model
     self.states = {
-        Ground = Ground.new(Statemachine),
-        Water = Water.new(Statemachine),
-        Air = Air.new(Statemachine)
+        Ground = Ground.new(self),
+        Water = Water.new(self),
+        Air = Air.new(self)
     }
+    self.currentState = self.states.Ground
 
     self.currentState:stateEnter()
 
@@ -53,9 +53,10 @@ function Statemachine:transitionState(newState: BaseState.BaseStateType)
         error("no state to transition to")
     end
 
+    local oldState = self.currentState
     self.currentState:leaveState()
     self.currentState = newState
-    self.currentState:stateEnter()
+    self.currentState:stateEnter(oldState)
 end
 
 function Statemachine:getCurrentState()
