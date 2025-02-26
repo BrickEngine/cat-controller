@@ -114,6 +114,10 @@ do
 		panInputCount = math.max(0, panInputCount - 1)
 	end
 
+	local function resetPanInpCount()
+		panInputCount = 0
+	end
+
 	local gamepadState = {
 		Thumbstick2 = Vector2.new(),
 	}
@@ -214,6 +218,8 @@ do
 					end
 				end
 			end
+
+			resetPanInpCount()
 		end
 
 		local touchBegan, touchChanged, touchEnded, resetTouchState do
@@ -310,6 +316,7 @@ do
 				touches = {}
 				dynamicThumbstickInput = nil
 				lastPinchDiameter = nil
+				resetPanInpCount()
 			end
 		end
 
@@ -391,7 +398,7 @@ do
 				table.insert(connectionList, UserInputService.InputChanged:Connect(inputChanged))
 				table.insert(connectionList, UserInputService.InputEnded:Connect(inputEnded))
 				table.insert(connectionList, UserInputService.PointerAction:Connect(pointerAction))
-
+				table.insert(connectionList, game:GetService("GuiService").MenuOpened:Connect(resetTouchState))
 			else -- disable
 				ContextActionService:UnbindAction("RbxCameraThumbstick")
 				ContextActionService:UnbindAction("RbxCameraMouseMove")
@@ -475,7 +482,7 @@ do
 	
 		rmbUpConnection = rmbUp:Connect(function()
 			holdPan = false
-			if tick() - lastRmbDown < MB_TAP_LENGTH and (togglePan or UserInputService:GetMouseDelta().Magnitude < 2) then
+			if tick() - lastRmbDown < MB_TAP_LENGTH and (togglePan or UserInputService:GetMouseDelta().Magnitude < 0.1) then --2
 				togglePan = not togglePan
 			end
 		end)

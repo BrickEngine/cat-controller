@@ -20,7 +20,7 @@ local ZOOM_SENSITIVITY_CURVATURE = 0.5
 local ZOOM_MIN = 1
 
 local ZoomController = require(script.Parent.ZoomController)
-local CameraUtils = require(script.Parent.CamUtils)
+local CamUtils = require(script.Parent.CamUtils)
 local CamInput = require(script.Parent.CamInput)
 
 local player = Players.LocalPlayer
@@ -385,17 +385,18 @@ function BaseCamera:cleanup()
 	self.lastSubjectCFrame = nil
 
 	-- Unlock mouse for example if right mouse button was being held down
-	CameraUtils.restoreMouseBehavior()
+	CamUtils.restoreMouseBehavior()
 end
 
 function BaseCamera:updateMouseBehavior()
-	CameraUtils.restoreRotationType()
+	CamUtils.restoreRotationType()
+	CamInput.disableCameraToggleInput()
 
 	local rotationActivated = CamInput.getRotationActivated()
 	if rotationActivated then
-		CameraUtils.setMouseBehaviorOverride(Enum.MouseBehavior.LockCurrentPosition)
+		CamUtils.setMouseBehaviorOverride(Enum.MouseBehavior.LockCurrentPosition)
 	else
-		CameraUtils.restoreMouseBehavior()
+		CamUtils.restoreMouseBehavior()
 	end
 end
 

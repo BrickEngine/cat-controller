@@ -4,7 +4,7 @@ local Players = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
 
-local BaseMoveInput = require(script.Parent.BaseMoveInput)
+local BaseInput = require(script.Parent.BaseInput)
 local ContextActions = require(script.Parent.ContextActions)
 
 local VEC3_ZERO = Vector3.zero
@@ -16,11 +16,11 @@ local KEY_UP = Enum.KeyCode.Up
 local KEY_DOWN = Enum.KeyCode.Down
 local KEY_JUMP = Enum.KeyCode.Space
 
-local MoveKeyboard = setmetatable({}, BaseMoveInput)
+local MoveKeyboard = setmetatable({}, BaseInput)
 MoveKeyboard.__index = MoveKeyboard
 
 function MoveKeyboard.new(CONTROL_PRIORITY: number)
-    local self = setmetatable(BaseMoveInput.new() :: any, MoveKeyboard)
+    local self = setmetatable(BaseInput.new() :: any, MoveKeyboard)
 
     self.CONTROL_PRIORITY = CONTROL_PRIORITY :: number
 
@@ -115,25 +115,18 @@ end
 function MoveKeyboard:connectFocusEventListeners()
 	local function onFocusReleased()
 		self.moveVector = VEC3_ZERO
-		self.f_val = 0
-		self.b_val = 0
-		self.l_val = 0
-		self.r_val = 0
-		self.jumpInp = false
-		self.runInp = false
+		self.f_val, self.b_val, self.l_val, self.r_val = 0, 0, 0, 0
+		self.jumpInp, self.runInp = false, false
 
 		self:updateJump()
 		self:updateSprint()
 	end
 
 	local function onTextFocusGained(textboxFocused)
-		self.jumpInp = false
-		self.runInp = false
-		self.f_val = 0
-		self.b_val = 0
-		self.l_val = 0
-		self.r_val = 0
 		self.moveVector = VEC3_ZERO
+		self.f_val, self.b_val, self.l_val, self.r_val = 0, 0, 0, 0
+		self.jumpInp, self.runInp = false, false
+
 		self:updateJump()
 		self:updateSprint()
 	end

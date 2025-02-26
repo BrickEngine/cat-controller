@@ -298,4 +298,4 @@ end
 
 local cameraModuleObject = CameraModule.new()
 
-return {}
+return cameraModuleObject

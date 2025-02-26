@@ -6,9 +6,9 @@ export type BaseStateType = {
     new: (Model, Vector3) -> BaseStateType,
     stateLeave: (BaseStateType) -> (),
     stateEnter: (BaseStateType) -> (),
-    update: (BaseStateType, dt: number) -> (),
+    update: (BaseStateType, dt: number, inputController: table) -> (),
 
-    _stateMachine: any,
+    _stateMachine: table,
 }
 
 local BaseState = {} :: BaseStateType

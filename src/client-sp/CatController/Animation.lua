@@ -3,14 +3,19 @@ Animation.__index = Animation
 
 local DEFAULT_ANIM_SPEED = 1
 local ANIMS = {
+	-- ground | idle
     IDLE = "rbxassetid://76728544462648",
     CROUCH = "rbxassetid://91356839033018",
+	-- ground | movement
     SNEAK = "rbxassetid://82906371497519",
     WALK = "rbxassetid://79536250580622",
     TROT = "rbxassetid://81560499422968",
     RUN = "rbxassetid://90228280985497",
+	-- ground | idle action
     SIT = "rbxassetid://86378703965993",
+	-- water
 	SWIM = "",
+	-- air
 	FALL = ""
 }
 
@@ -60,17 +65,17 @@ Animation.State = {
             self.animations.CROUCH:AdjustSpeed(speed)
         end
 	},
-	Trot = {
-		enter = function(self)
-			self.animations.TROT:Play()
-		end,
-		leave = function(self)
-			self.animations.TROT:Stop()
-		end,
-        setSpeed = function(self, speed)
-            self.animations.CROUCH:AdjustSpeed(speed)
-        end
-	},
+	-- Trot = {
+	-- 	enter = function(self)
+	-- 		self.animations.TROT:Play()
+	-- 	end,
+	-- 	leave = function(self)
+	-- 		self.animations.TROT:Stop()
+	-- 	end,
+    --     setSpeed = function(self, speed)
+    --         self.animations.CROUCH:AdjustSpeed(speed)
+    --     end
+	-- },
 	Run = {
 		enter = function(self)
 			self.animations.RUN:Play()

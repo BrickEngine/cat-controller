@@ -3,6 +3,7 @@ local Workspace = game:GetService("Workspace")
 local Controller = script.Parent.Parent
 local BaseState = require(Controller.SimStates.BaseState)
 local physCheck = require(Controller.Common.PhysCheck)
+local InputManager = require(Controller.InputManager)
 
 local Ground = setmetatable({}, BaseState)
 Ground.__index = Ground
@@ -12,9 +13,9 @@ local function getWalkInput()
 end
 
 function Ground.new(stateMachine)
-    local self = setmetatable(BaseState.new(stateMachine) :: BaseState.BaseStateType, Ground)
+    local self = setmetatable(BaseState.new(stateMachine), Ground)
 
-    self.character = self.character :: Model
+    self._stateMachine = stateMachine
 
     return self
 end
@@ -28,7 +29,9 @@ function Ground:stateLeave()
 end
 
 function Ground:update(dt: number)
-   -- print(self._stateMachine._input)
+   --print(self._stateMachine._input)
+    --print(inputController)
+    print(InputManager:getMoveVec())
 end
 
 return Ground

@@ -1,18 +1,14 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 
 local Controller = script.Parent
+local CharSimInit = require(Controller.CharSimInit)
 local StateMachine = require(Controller.StateMachine)
-local MoveKeyboard = require(Controller.MoveKeyboard)
-local MoveTouch = nil -- TODO
 
-local RENDER_PRIO = 100
-
-local INPUT_TYPES = {
-    moveKeyboard = "MoveKeyboard",
-    moveTouch = "MoveTouch"
-}
+local ACTION_PRIO = 100
+local SIM_UPDATE_FUNC = "SimRSUpdate"
 
 local Simulation = {}
 Simulation.__index = Simulation
@@ -20,12 +16,9 @@ Simulation.__index = Simulation
 function Simulation.new()
     local self = setmetatable({}, Simulation)
 
-    self.inputModules = {}
-    self.inputModules[INPUT_TYPES.moveKeyboard] = MoveKeyboard.new(RENDER_PRIO)
-
     self.character = Players.LocalPlayer.Character
-    self.activeInputModule = nil
-    self.stateMachine = nil
+    self.stateMachine = StateMachine.new(self.character)
+    self.currentStateId = 0
 
     Players.LocalPlayer.CharacterAdded:Connect(function(char) self:onCharAdded(char) end)
     Players.LocalPlayer.CharacterRemoving:Connect(function(char) self:onCharRemoving(char) end)
@@ -33,61 +26,35 @@ function Simulation.new()
 		self:onCharAdded(Players.LocalPlayer.Character)
 	end
 
-    -------------------------------------------------------------------------------------
-
-    self:initMoveInpControl()
-    self:initStateMachine()
-
-    RunService:BindToRenderStep("SimulationRSUpdate", RENDER_PRIO, function(dt)
-        self:update(dt)
-    end)
-
-	UserInputService.LastInputTypeChanged:Connect(function(newLastInputType)
-		--self:onLastInputTypeChanged(newLastInputType)
-	end)
+    -- RunService:BindToRenderStep(SIM_UPDATE_FUNC, ACTION_PRIO, function(dt)
+    --     self:update(dt)
+    -- end)
 
     return self
 end
 
+------------------------------------------------------------------------------------------------------------------------------
+
+function Simulation:getStateId()
+    return self.currentStateId
+end
+
 function Simulation:update(dt: number)
-    self.stateMachine:update(dt)
-    print(self:getActiveInputModule():getMoveVec())
+    self.currentStateId = self.stateMachine:update(dt)
 end
 
 function Simulation:onCharAdded(character)
     self.character = character
-    self.stateMachine:resetRefs(character)
+    self.stateMachine:resetRefs(self.character)
+    CharSimInit(self.character)
+
+    RunService:BindToRenderStep(SIM_UPDATE_FUNC, ACTION_PRIO, function(dt)
+        self:update(dt)
+    end)
 end
 
 function Simulation:onCharRemoving()
-    --self.character = nil
-    --self.stateMachine:resetRefs(nil)
-end
-
-function Simulation:getActiveInputModule(): any
-    return self.inputModules[self.activeInputModule]
-end
-
-function Simulation:initMoveInpControl(): boolean
-    if (UserInputService.KeyboardEnabled) then
-        self.activeInputModule = INPUT_TYPES.moveKeyboard
-    elseif (UserInputService.TouchEnabled) then
-        self.activeInputModule = nil -- TODO
-    else
-        self.activeInputModule = nil
-    end
-
-    if (self.activeInputModule) then
-        self:getActiveInputModule():enable(true)
-    end
-end
-
-function Simulation:initStateMachine()
-    if (self.stateMachine) then
-        return
-    end
-
-    self.stateMachine = StateMachine.new(self.character, self:getActiveInputModule())
+    RunService:UnbindFromRenderStep(SIM_UPDATE_FUNC)
 end
 
 return Simulation.new()

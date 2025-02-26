@@ -1,8 +1,6 @@
 local simStates = script.Parent.SimStates
 
 local BaseState = require(simStates.BaseState)
---local BaseMoveInput = require(script.Parent.BaseMoveInput)
-
 local Ground = require(simStates.Ground) :: BaseState.BaseStateType
 local Water = require(simStates.Water) :: BaseState.BaseStateType
 local Air = require(simStates.Air) :: BaseState.BaseStateType
@@ -13,25 +11,29 @@ export type StateMachineType = {
     resetRefs: (StateMachineType, Model) -> (),
     update: (StateMachineType, dt: number) -> (),
 
-    _input: any,
     character: Model,
     currentState: BaseState.BaseStateType,
     states: {[any]: BaseState.BaseStateType}
 }
 
+local stateIdMap = {}
+
 local Statemachine = {}
 Statemachine.__index = Statemachine
 
-function Statemachine.new(character: Model, _input: any)
+function Statemachine.new(character: Model)
     local self = setmetatable({}, Statemachine)
 
-    self._input = _input
-    self.character = character :: Model
+    self.character = character
     self.states = {
         Ground = Ground.new(self),
-        Water = Water.new(self),
-        Air = Air.new(self)
+        Air = Air.new(self),
+        Water = Water.new(self)
     }
+    stateIdMap[self.states.Ground] = 0
+    stateIdMap[self.states.Air] = 1
+    stateIdMap[self.states.Water] = 2
+
     self.currentState = self.states.Ground
 
     self.currentState:stateEnter()
@@ -67,10 +69,16 @@ function Statemachine:resetRefs(character: Model)
     self.character = character
 end
 
-function Statemachine:update(dt: number)
-    if (self.character and self.currentState.update) then
-        self.currentState:update(dt)
+function Statemachine:update(dt: number, inputController)
+    if (self.character) then
+        self.currentState:update(dt, inputController)
     end
+
+    return stateIdMap[self.currentState]
+end
+
+function Statemachine:destroy()
+    setmetatable(self, nil)
 end
 
 return Statemachine

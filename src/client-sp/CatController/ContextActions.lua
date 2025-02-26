@@ -1,17 +1,17 @@
 local Actions = {
     -- movement
-    MOVE_L = "moveLAction",
-    MOVE_R = "moveRAction",
-    MOVE_F = "moveFAction",
-    MOVE_B = "moveBAction",
+    MOVE_L = "moveLeftAction",
+    MOVE_R = "moveRightAction",
+    MOVE_F = "moveForwardAction",
+    MOVE_B = "moveBackwardAction",
     JUMP = "jumpAction",
     SPEED_U = "speedUpAction",
     SPEED_D = "speedDownAction",
     -- camera
-    CAM_L = "camLAction",
-    CAM_R = "camRAction",
-    CAM_U = "CamUACtion",
-    CAM_D = "CamDAction",
+    CAM_L = "camRotateLeftAction",
+    CAM_R = "camRotateRightAction",
+    CAM_U = "camRotateUpACtion",
+    CAM_D = "camRotateDownAction",
     -- special
     SIT = "sitAction",
     SNEAK = "sneakAction",
