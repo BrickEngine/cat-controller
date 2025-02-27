@@ -12,11 +12,11 @@ function Air.new(...)
 end
 
 function Air:enterState()
-    
+    return
 end
 
 function Air:leaveState()
-    
+    return
 end
 
 function Air:update(dt: number)

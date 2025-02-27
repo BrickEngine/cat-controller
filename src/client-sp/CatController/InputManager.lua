@@ -26,7 +26,7 @@ function InputManager.new()
 	self.playerGuiAddedConn = nil
 
 	UserInputService.LastInputTypeChanged:Connect(function(newLastInputType)
-        print(":::: INPUT SWITCH ::::")
+        --print(":::: INPUT SWITCH ::::")
 		self:onLastInputTypeChanged(newLastInputType)
 	end)
 
@@ -60,16 +60,25 @@ end
 
 ------------------------------------------------------------------------------------------------------------------------------
 
-function InputManager:getMoveVec()
+function InputManager:getMoveVec(): Vector3
     if (not self.activeInputController) then
-        warn("no active input controller set")
-        return VEC3_ZERO
+        warn("no active input controller set"); return VEC3_ZERO
     end
     return self.activeInputController:getMoveVec()
 end
 
-function InputManager:update(dt: number)
-    self.stateMachine:update(dt, self.activeInputController)
+function InputManager:isJumping(): boolean
+    if (not self.activeInputController) then
+        warn("no active input controller set"); return false
+    end
+    return self.activeInputController:getIsJumping()
+end
+
+function InputManager:isRunning(): boolean
+    if (not self.activeInputController) then
+        warn("no active input controller set"); return false
+    end
+    return self.activeInputController:getIsRunning()
 end
 
 function InputManager:getActiveInputController(): ({}?)

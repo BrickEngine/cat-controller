@@ -1,12 +1,16 @@
-local Phys = {}
+local Workspace = game:GetService("Workspace")
 
 local NUM_RAYS = 32
-local ALPHA = 2
 local PHI = 1.61803398875
 local RADIUS_OFFSET = 0.05
 local GND_CLEAR = 1
-local MAX_STEEP = 60
-local VEC_UP = Vector3.new(0, 1 ,0)
+local MAX_INCLINE = 60
+local VEC3_UP = Vector3.new(0, 1 ,0)
+local VEC3_REGION_SIZE = Vector3.new(0.5, 0.5, 0.5)
+local VEC3_REGION_OFFSET = VEC3_UP * 1.6
+local BOUND_POINTS = math.round(2 * math.sqrt(NUM_RAYS))
+
+local Phys = {}
 
 local function radiusDist(k, n, b)
 	if (k > n-b) then
@@ -16,77 +20,44 @@ local function radiusDist(k, n, b)
 	end
 end
 
-function Phys.createForces(mdl:Model)
-	local defPos = mdl.PrimaryPart.CFrame 
-
-	local velocity0 = Instance.new("Attachment")
-	velocity0.Name = "Velocity0"
-	velocity0.Parent = mdl.PrimaryPart
-	
-	local velocity1 = Instance.new("Attachment")
-	velocity1.Name = "Velocity1"
-	velocity1.Parent = mdl.PrimaryPart
-
-	--local orient0 = Instance.new("Attachment")
-	--orient0.Name = "Orient0"
-	--orient0.CFrame = defPos
-	--orient0.Parent = mdl.PrimaryPart
-	--orient0.Axis = Vector3.new(0,1,0)
-	--orient0.SecondaryAxis = Vector3.new(0,0,-1)
-
-	--local alignOrient = Instance.new("AlignOrientation")
-	--alignOrient.Mode = Enum.OrientationAlignmentMode.OneAttachment
-	--alignOrient.AlignType = Enum.AlignType.PrimaryAxisParallel
-	--alignOrient.PrimaryAxis = Vector3.new(0,1,0)
-	--alignOrient.ReactionTorqueEnabled = true
-	--alignOrient.RigidityEnabled = true
-	--alignOrient.Attachment0 = orient0
-	--alignOrient.Parent = mdl.PrimaryPart
-	--alignOrient.CFrame = defPos
-	--alignOrient.Enabled = true
-	local vertVecForce = Instance.new("VectorForce")
-	--vertVecForce.ApplyAtCenterOfMass = true
-	vertVecForce.Force = Vector3.new(0, 0, 0)
-	vertVecForce.RelativeTo = Enum.ActuatorRelativeTo.World
-	vertVecForce.Attachment0 = velocity0
-	vertVecForce.Parent = mdl.PrimaryPart
-
-	local horVecForce = Instance.new("VectorForce")
-	--horVecForce.ApplyAtCenterOfMass = true
-	horVecForce.Force = Vector3.new(0, 0, 0)
-	horVecForce.RelativeTo = Enum.ActuatorRelativeTo.World
-	horVecForce.Attachment0 = velocity0
-	horVecForce.Parent = mdl.PrimaryPart
-
-	return vertVecForce, horVecForce
-end
+export type physData = {
+	grounded: boolean,
+	inWater: boolean,
+	gndHeight: number,
+	normal: Vector3,
+	normalAngle: number
+}
 
 function Phys.colliderCast(
-	rayCenterPos:Vector3, 
-	radius, hipHeight, 
-	rayParams:RaycastParams, 
-	currVel:Vector3
+	rootPos: Vector3,
+	radius: number,
+	hipHeight: number,
+	rayParams: RaycastParams
 )
 	local rayArr = {}
-	local boundPts = math.round(ALPHA * math.sqrt(NUM_RAYS))
 	local grounded = false
 	local gndHeight = -9999
-    local normal = VEC_UP
+    local normal = VEC3_UP
     local normAngle = 0
+	local waterDetRegion = Region3.new(
+		rootPos + VEC3_REGION_OFFSET - VEC3_REGION_SIZE,
+		rootPos + VEC3_REGION_OFFSET + VEC3_REGION_SIZE
+	)
+	local inWater = Workspace.Terrain:ReadVoxels(waterDetRegion, 4)[1][1][1] == Enum.Material.Water
 
 	for i=1, NUM_RAYS, 1 do
-		local r = radiusDist(i, NUM_RAYS, boundPts) * (radius - RADIUS_OFFSET)
+		local r = radiusDist(i, NUM_RAYS, BOUND_POINTS) * (radius - RADIUS_OFFSET)
 		local theta = i * 360 * PHI
 		local offsetX = r * math.cos(theta)
 		local offsetZ = r * math.sin(theta)
 		local rayPos = Vector3.new(
-			rayCenterPos.X + offsetX, 
-			rayCenterPos.Y, 
-			rayCenterPos.Z + offsetZ
+			rootPos.X + offsetX,
+			rootPos.Y,
+			rootPos.Z + offsetZ
 		)
-		local ray = workspace:Raycast(
-			rayPos, 
-			Vector3.new(0, -100, 0), 
+		local ray = Workspace:Raycast(
+			rayPos,
+			Vector3.new(0, -100, 0),
 			rayParams
 		)
 		if (ray) then
@@ -100,7 +71,7 @@ function Phys.colliderCast(
 			--end
 			if (rayGndPos > gndHeight and ray.Distance <= hipHeight + GND_CLEAR) then
 				if (onSlope) then
-					if (normAngle <= MAX_STEEP) then
+					if (normAngle <= MAX_INCLINE) then
                         normal = ray.Normal
 						gndHeight = rayGndPos
 						grounded = true
@@ -113,7 +84,8 @@ function Phys.colliderCast(
 		end
 	end
 
-	return grounded, gndHeight, normal, normAngle
+	--return grounded, gndHeight, normal, normAngle
+	return  {grounded, inWater, gndHeight, normal, normAngle} :: physData
 end
 
 return Phys.colliderCast

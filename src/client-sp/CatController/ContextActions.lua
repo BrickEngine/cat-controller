@@ -13,8 +13,7 @@ local Actions = {
     CAM_U = "camRotateUpACtion",
     CAM_D = "camRotateDownAction",
     -- special
-    SIT = "sitAction",
-    SNEAK = "sneakAction",
+    SIT = "sitAction"
 }
 
 return Actions

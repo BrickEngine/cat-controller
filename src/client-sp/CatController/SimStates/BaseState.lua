@@ -22,7 +22,7 @@ function BaseState.new(_stateMachine)
     return self :: BaseStateType;
 end
 
-function BaseState:stateEnter(oldState: BaseStateType)
+function BaseState:stateEnter()
     return false
 end
 
