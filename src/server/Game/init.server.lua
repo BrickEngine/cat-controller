@@ -3,7 +3,7 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
-local NetApi = require(ReplicatedStorage.Shared.NetworkApi)
+local NetApiDef = require(ReplicatedStorage.Shared.NetworkApiDef)
 local ServApi = require(script.ServApi)
 
 local rEventFunctions = {}
@@ -14,7 +14,7 @@ local starterCharPreset = StarterPlayer.DefaultCharacter :: Model
 
 -- Workspace init
 do
-    if (not Workspace.ActivePlayers) then
+    if (not Workspace:FindFirstChild("ActivePlayers")) then
         local plrFold = Instance.new("Folder")
         plrFold.Name = "ActivePlayers"
         plrFold.Parent = Workspace
@@ -25,7 +25,10 @@ local function removePlayer(plr: Player)
 	if (plr.Character) then plr.Character:Destroy() end
 end
 
-local function spawnAndSetPlrChar(plr: Player)
+local function spawnAndSetPlrChar(plr: Player, playerModel: Model)
+    if (playerModel) then
+        print("player requested model")
+    end
 	local newCharacter = starterCharPreset:Clone()
 	local SelectedSpawn = spawns[math.random(1, #spawns)]
     do
@@ -38,11 +41,11 @@ local function spawnAndSetPlrChar(plr: Player)
 	return newCharacter
 end
 
-function rEventFunctions.requestSpawn(plr: Player)
+function rEventFunctions.requestSpawn(plr: Player, playerModel: Model?)
     if (plr.Character) then
 		warn(tostring(plr.Name).." attempted to spawn with active character") return
 	end
-	spawnAndSetPlrChar(plr)
+	spawnAndSetPlrChar(plr, playerModel)
 end
 
 function rEventFunctions.requestDespawn(plr: Player)

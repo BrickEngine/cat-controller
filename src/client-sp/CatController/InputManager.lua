@@ -67,14 +67,14 @@ function InputManager:getMoveVec(): Vector3
     return self.activeInputController:getMoveVec()
 end
 
-function InputManager:isJumping(): boolean
+function InputManager:getIsJumping(): boolean
     if (not self.activeInputController) then
         warn("no active input controller set"); return false
     end
     return self.activeInputController:getIsJumping()
 end
 
-function InputManager:isRunning(): boolean
+function InputManager:getIsRunning(): boolean
     if (not self.activeInputController) then
         warn("no active input controller set"); return false
     end

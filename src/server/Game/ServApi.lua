@@ -1,17 +1,17 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local NetApi = require(ReplicatedStorage.Shared.NetworkApi)
+local NetApiDef = require(ReplicatedStorage.Shared.NetworkApiDef)
 
 -- Init folder for storing events
 local apiObjFold = Instance.new("Folder")
-apiObjFold.Name = NetApi.FOLD_NAME
+apiObjFold.Name = NetApiDef.FOLD_NAME
 apiObjFold.Parent = ReplicatedStorage
 
 local ServApi = {}
 
 -- Table of events to implement
 function ServApi.implementREvents(tbl: any)
-    for _, eventName in ipairs(NetApi.definitions.clientEvents) do
+    for _, eventName in ipairs(NetApiDef.definitions.clientEvents) do
         local remEvent = Instance.new("RemoteEvent")
         remEvent.Name = eventName
 
@@ -28,7 +28,7 @@ function ServApi.implementREvents(tbl: any)
 end
 
 function ServApi.implementRFunctions(tbl: any)
-    for _, eventName in ipairs(NetApi.definitions.remoteFunctions) do
+    for _, eventName in ipairs(NetApiDef.definitions.remoteFunctions) do
         local remFunc = Instance.new("RemoteFunction")
         remFunc.Name = eventName
         remFunc.Parent = apiObjFold

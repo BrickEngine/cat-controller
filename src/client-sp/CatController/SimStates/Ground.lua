@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local Controller = script.Parent.Parent
@@ -10,12 +11,11 @@ local GND_WALK_SPEED = 2.6
 local GND_RUN_SPEED = 7.2
 local CONST_MASS = 1
 local VEC3_CAST_OFFSET = Vector3.new(0,-0.5,0)
+local VEC3_ZERO = Vector3.zero
 local RAY_PARAMS = RaycastParams.new()
 RAY_PARAMS.CollisionGroup = "Player"
 RAY_PARAMS.IgnoreWater = true
 RAY_PARAMS.RespectCanCollide = true
-
-local character: Model
 
 local function getModelMass(mdl: Model)
 	local mass = 0
@@ -54,6 +54,7 @@ local function createVecForce(mdl: Model)
     vecForce.Attachment0 = forceAtt
     vecForce.RelativeTo = Enum.ActuatorRelativeTo.World
     vecForce.Parent = mdl.PrimaryPart
+    vecForce.Force = VEC3_ZERO
 
     return vecForce
 end
@@ -67,6 +68,7 @@ function Ground.new(stateMachine)
     local self = setmetatable(BaseState.new(stateMachine), Ground)
 
     self._stateMachine = stateMachine
+    self.character = Players.LocalPlayer.Character
     self.vecForce = nil
     self.alignOri = nil
 
@@ -77,8 +79,8 @@ function Ground:stateEnter()
     if (self.forces) then
         warn("forces already exist") return
     end
-    self.vecForce = createVecForce(self._stateMachine.character)
-    character = self._stateMachine.character
+    self.vecForce = createVecForce(self.character)
+    --character = self._stateMachine.character
 end
 
 function Ground:stateLeave()
@@ -91,26 +93,27 @@ function Ground:stateLeave()
     --         v.diable
     --     end
     -- end
-    character = nil
+    --character = nil
 end
 
 function Ground:update(dt: number)
     --print(InputManager:getMoveVec())
-    local currentVel = character.PrimaryPart.AssemblyLinearVelocity
-    local moveAccel = calcWalkAccel(character, currentVel, dt)
+    local primaryPart = self.character.PrimaryPart
+    local currentVel = primaryPart.AssemblyLinearVelocity
+    local moveAccel = calcWalkAccel(primaryPart.CFrame.Position, currentVel, dt)
     local accelX = moveAccel.X * CONST_MASS
     local accelZ = moveAccel.Z * CONST_MASS
 
     local physData: PhysCheck.physData = PhysCheck(
-        character.PrimaryPart.CFrame.Position + VEC3_CAST_OFFSET,
+        primaryPart.CFrame.Position + VEC3_CAST_OFFSET,
         2,
         2,
         RAY_PARAMS
     )
 
-    if (not physData.grounded) then
-        self._stateMachine:transitionState(self._stateMachine.states.Air)
-    end
+    -- if (not physData.grounded) then
+    --     self._stateMachine:transitionState(self._stateMachine.states.Air)
+    -- end
 end
 
 return Ground

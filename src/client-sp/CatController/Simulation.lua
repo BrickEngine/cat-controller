@@ -17,7 +17,7 @@ function Simulation.new()
     local self = setmetatable({}, Simulation)
 
     self.character = Players.LocalPlayer.Character
-    self.stateMachine = StateMachine.new(self.character)
+    self.stateMachine = nil
     self.currentStateId = 0
 
     Players.LocalPlayer.CharacterAdded:Connect(function(char) self:onCharAdded(char) end)
@@ -45,7 +45,7 @@ end
 
 function Simulation:onCharAdded(character)
     self.character = character
-    self.stateMachine:resetRefs(self.character)
+    self.stateMachine = StateMachine.new(self.character)
     CharSimInit(self.character)
 
     RunService:BindToRenderStep(SIM_UPDATE_FUNC, ACTION_PRIO, function(dt)
@@ -55,6 +55,9 @@ end
 
 function Simulation:onCharRemoving()
     RunService:UnbindFromRenderStep(SIM_UPDATE_FUNC)
+    -- if (self.stateMachine) then
+    --     self.stateMachine:destroy()
+    -- end
 end
 
 return Simulation.new()

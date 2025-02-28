@@ -1,12 +1,12 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local NetApi = require(ReplicatedStorage.Shared.NetworkApi)
+local NetApiDef = require(ReplicatedStorage.Shared.NetworkApiDef)
 
-local apiObjects = ReplicatedStorage:WaitForChild(NetApi.FOLD_NAME)
+local apiObjects = ReplicatedStorage:WaitForChild(NetApiDef.FOLD_NAME)
 
 local CliApi = {}
 
-for _, eventName in ipairs(NetApi.definitions.clientEvents) do
+for _, eventName in ipairs(NetApiDef.definitions.clientEvents) do
 	local obj = apiObjects:WaitForChild(eventName)
 
 	if (not obj:IsA("RemoteEvent")) then
@@ -18,7 +18,7 @@ for _, eventName in ipairs(NetApi.definitions.clientEvents) do
 	end
 end
 
-for _, remFuncName in ipairs(NetApi.definitions.remoteFunctions) do
+for _, remFuncName in ipairs(NetApiDef.definitions.remoteFunctions) do
 	local obj = apiObjects:WaitForChild(remFuncName)
 
 	if (not obj:IsA("RemoteFunction")) then
