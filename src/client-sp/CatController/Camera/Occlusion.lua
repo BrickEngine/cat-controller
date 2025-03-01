@@ -1,9 +1,6 @@
 -- Occlusion module that brings the camera closer to the subject when objects are blocking the view
 
---local FlagUtil = require(script.Parent.Parent.Common.FlagUtil)
 local ZoomController =  require(script.Parent.ZoomController)
-
---local FFlagUserFixCameraFPError = FlagUtil.getUserFlag("UserFixCameraFPError")
 
 local TransformExtrapolator = {} do
 	TransformExtrapolator.__index = TransformExtrapolator
@@ -87,7 +84,7 @@ end
 function Occlusion:update(renderDt, desiredCameraCFrame, desiredCameraFocus, cameraController)
 	local rotatedFocus = nil
 	--if FFlagUserFixCameraFPError then
-	rotatedFocus = CFrame.lookAlong(desiredCameraFocus.p, -desiredCameraCFrame.LookVector) * CFrame.new(
+	rotatedFocus = CFrame.lookAlong(desiredCameraFocus.Position, -desiredCameraCFrame.LookVector) * CFrame.new(
 		0, 0, 0,
 		-1, 0, 0,
 		0, 1, 0,
