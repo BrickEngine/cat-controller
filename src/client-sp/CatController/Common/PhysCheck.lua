@@ -8,6 +8,7 @@ local PHI = 1.61803398875
 local RADIUS_OFFSET = 0.05
 local GND_CLEAR = 1
 local MAX_INCLINE = 60
+local VEC3_ZERO = Vector3.zero
 local VEC3_UP = Vector3.new(0, 1 ,0)
 local VEC3_REGION_SIZE = Vector3.new(4, 4, 4)
 local VEC3_REGION_OFFSET = Vector3.new(0, 1 ,0)
@@ -102,7 +103,7 @@ function Phys.colliderCast(
 			rayParams
 		)
 		if (ray) then
-			local onSlope = ray.Normal:Cross(Vector3.yAxis) ~= Vector3.zero
+			local onSlope = ray.Normal:Cross(Vector3.yAxis) ~= VEC3_ZERO
 			local rayGndPos = ray.Position.Y
 			table.insert(rayArr, ray)
 

@@ -114,6 +114,8 @@ function Ground:update(dt: number)
     -- if (not physData.grounded) then
     --     self._stateMachine:transitionState(self._stateMachine.states.Air)
     -- end
+
+    
 end
 
 return Ground

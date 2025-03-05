@@ -1,10 +1,9 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local GuiService = game:GetService("GuiService")
-local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Controller = script.Parent
-local CharSimInit = require(Controller.CharSimInit)
+local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
 local StateMachine = require(Controller.StateMachine)
 
 local ACTION_PRIO = 100
@@ -46,7 +45,6 @@ end
 function Simulation:onCharAdded(character)
     self.character = character
     self.stateMachine = StateMachine.new(self.character)
-    CharSimInit(self.character)
 
     RunService:BindToRenderStep(SIM_UPDATE_FUNC, ACTION_PRIO, function(dt)
         self:update(dt)

@@ -6,19 +6,18 @@ local apiObjects = ReplicatedStorage:WaitForChild(NetApiDef.FOLD_NAME)
 
 local CliApi = {}
 
-for _, eventName in ipairs(NetApiDef.definitions.clientEvents) do
+for _, eventName in pairs(NetApiDef.clientEvents) do
 	local obj = apiObjects:WaitForChild(eventName)
 
 	if (not obj:IsA("RemoteEvent")) then
 		error(eventName.." is not a RemoteEvent")
 	end
-	
 	CliApi[eventName] = function(...)
 		obj:FireServer(...)
 	end
 end
 
-for _, remFuncName in ipairs(NetApiDef.definitions.remoteFunctions) do
+for _, remFuncName in pairs(NetApiDef.remoteFunctions) do
 	local obj = apiObjects:WaitForChild(remFuncName)
 
 	if (not obj:IsA("RemoteFunction")) then
@@ -29,6 +28,5 @@ for _, remFuncName in ipairs(NetApiDef.definitions.remoteFunctions) do
 		return obj:FireServer(...)
 	end
 end
-
 
 return CliApi

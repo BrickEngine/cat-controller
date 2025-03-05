@@ -9,9 +9,9 @@ apiObjFold.Parent = ReplicatedStorage
 
 local ServApi = {}
 
--- Table of events to implement
+-- Table of RemoteEvents to implement
 function ServApi.implementREvents(tbl: any)
-    for _, eventName in ipairs(NetApiDef.definitions.clientEvents) do
+    for _, eventName in pairs(NetApiDef.clientEvents) do
         local remEvent = Instance.new("RemoteEvent")
         remEvent.Name = eventName
 
@@ -27,8 +27,9 @@ function ServApi.implementREvents(tbl: any)
     end
 end
 
+-- Table of RemoteFunctions to implement
 function ServApi.implementRFunctions(tbl: any)
-    for _, eventName in ipairs(NetApiDef.definitions.remoteFunctions) do
+    for _, eventName in pairs(NetApiDef.remoteFunctions) do
         local remFunc = Instance.new("RemoteFunction")
         remFunc.Name = eventName
         remFunc.Parent = apiObjFold

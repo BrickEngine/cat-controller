@@ -3,33 +3,32 @@ local StarterPlayer = game:GetService("StarterPlayer")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
+local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
 local NetApiDef = require(ReplicatedStorage.Shared.NetworkApiDef)
 local ServApi = require(script.ServApi)
 
-local rEventFunctions = {}
-local rFuncFunctions = {}
-
 local spawns = Workspace.Spawns:GetChildren()
-local starterCharPreset = StarterPlayer.DefaultCharacter :: Model
+--local starterCharPreset = StarterPlayer.DefaultCharacter :: Model
+
+local PLAYERS_FOLD_NAME = "ActivePlayers"
 
 -- Workspace init
 do
-    if (not Workspace:FindFirstChild("ActivePlayers")) then
+    if (not Workspace:FindFirstChild(PLAYERS_FOLD_NAME)) then
         local plrFold = Instance.new("Folder")
-        plrFold.Name = "ActivePlayers"
+        plrFold.Name = PLAYERS_FOLD_NAME
         plrFold.Parent = Workspace
     end
 end
 
-local function removePlayer(plr: Player)
+local function removePlayerCharacter(plr: Player)
 	if (plr.Character) then plr.Character:Destroy() end
 end
 
-local function spawnAndSetPlrChar(plr: Player, playerModel: Model)
-    if (playerModel) then
-        print("player requested model")
-    end
-	local newCharacter = starterCharPreset:Clone()
+local function spawnAndSetPlrChar(plr: Player)
+    local playerModel = StarterPlayer:FindFirstChild("PlayerModel") -- TODO: proper PlayerModel selection
+
+	local newCharacter = CharacterDef.createCharacter(playerModel)
 	local SelectedSpawn = spawns[math.random(1, #spawns)]
     do
         newCharacter.Name = tostring(plr.UserId)
@@ -41,16 +40,31 @@ local function spawnAndSetPlrChar(plr: Player, playerModel: Model)
 	return newCharacter
 end
 
-function rEventFunctions.requestSpawn(plr: Player, playerModel: Model?)
-    if (plr.Character) then
-		warn(tostring(plr.Name).." attempted to spawn with active character") return
-	end
-	spawnAndSetPlrChar(plr, playerModel)
+local function onPlayerAdded(plr: Player)
+    -- TODO
 end
 
-function rEventFunctions.requestDespawn(plr: Player)
-    
+local function onPlayerRemoving(plr: Player)
+    removePlayerCharacter(plr)
 end
+
+local rEventFunctions = {
+    [NetApiDef.clientEvents.requestSpawn] = function(plr: Player)
+        if (plr.Character) then
+            warn(tostring(plr.Name).." attempted to spawn with active character") return
+        end
+        spawnAndSetPlrChar(plr)
+    end,
+    [NetApiDef.clientEvents.requestDespawn] = function(plr: Player)
+        removePlayerCharacter(plr)
+        -- TODO
+    end
+}
+
+local rFuncFunctions = {}
 
 ServApi.implementREvents(rEventFunctions)
 ServApi.implementRFunctions(rFuncFunctions)
+
+Players.PlayerAdded:Connect(onPlayerAdded)
+Players.PlayerRemoving:Connect(onPlayerRemoving)
