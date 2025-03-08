@@ -1,3 +1,5 @@
+--!strict
+
 local Workspace = game:GetService("Workspace")
 
 local BaseState = require(script.Parent.BaseState)

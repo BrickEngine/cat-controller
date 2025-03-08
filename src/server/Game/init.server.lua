@@ -51,7 +51,8 @@ end
 local rEventFunctions = {
     [NetApiDef.clientEvents.requestSpawn] = function(plr: Player)
         if (plr.Character) then
-            warn(tostring(plr.Name).." attempted to spawn with active character") return
+            warn(tostring(plr.Name).." attempted to spawn with active character")
+            plr.Character = nil
         end
         spawnAndSetPlrChar(plr)
     end,

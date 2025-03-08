@@ -2,10 +2,9 @@ local Players = game:GetService("Players")
 
 local SimStates = script.Parent.SimStates
 
-local BaseState = require(SimStates.BaseState)
-local Ground = require(SimStates.Ground) :: BaseState.BaseStateType
-local Water = require(SimStates.Water) :: BaseState.BaseStateType
-local Air = require(SimStates.Air) :: BaseState.BaseStateType
+local Ground = require(SimStates.Ground)
+local Water = require(SimStates.Water)
+local Air = require(SimStates.Air)
 
 -- export type StateMachineType = {
 --     transitionState: (StateMachineType) -> (),
@@ -52,7 +51,7 @@ function Statemachine:reset()
     self.currentState:stateEnter()
 end
 
-function Statemachine:transitionState(newState: BaseState.BaseStateType)
+function Statemachine:transitionState(newState)
     if (not newState) then
         error("no state to transition to")
     end
@@ -62,23 +61,15 @@ function Statemachine:transitionState(newState: BaseState.BaseStateType)
     self.currentState:stateEnter()
 end
 
-function Statemachine:getCurrentState()
-    return self.currentState
-end
-
-function Statemachine:resetRefs(character: Model)
-    self.character = character
-end
-
-function Statemachine:update(dt: number, inputController)
-    if (not self.character) then
-        warn("no character instance") return -1
-    end
-    self.currentState:update(dt, inputController)
+function Statemachine:update(dt: number)
+    self.currentState:update(dt)
     return stateIdMap[self.currentState]
 end
 
 function Statemachine:destroy()
+    self.character = nil
+    self.currentState = nil
+    self.states = nil
     setmetatable(self, nil)
 end
 

@@ -1,3 +1,5 @@
+--!strict
+
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
@@ -5,6 +7,8 @@ local Controller = script.Parent.Parent
 local BaseState = require(Controller.SimStates.BaseState)
 local PhysCheck = require(Controller.Common.PhysCheck)
 local InputManager = require(Controller.InputManager)
+
+local STATE_ID = 0
 
 local NORMALIZE_INPUT = false
 local GND_WALK_SPEED = 2.6
@@ -64,15 +68,14 @@ end
 local Ground = setmetatable({}, BaseState)
 Ground.__index = Ground
 
-function Ground.new(stateMachine)
-    local self = setmetatable(BaseState.new(stateMachine), Ground)
+function Ground.new(...)
+    local self = setmetatable(BaseState.new(...), Ground)
 
-    self._stateMachine = stateMachine
-    self.character = Players.LocalPlayer.Character
+    self.character = self._simulation.character
     self.vecForce = nil
     self.alignOri = nil
 
-    return self
+    return self :: BaseState.BaseStateType
 end
 
 function Ground:stateEnter()
@@ -114,8 +117,7 @@ function Ground:update(dt: number)
     -- if (not physData.grounded) then
     --     self._stateMachine:transitionState(self._stateMachine.states.Air)
     -- end
-
-    
+    return STATE_ID
 end
 
 return Ground

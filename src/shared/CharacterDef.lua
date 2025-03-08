@@ -30,7 +30,7 @@ local PARAMS = {
         0, 0, 1
     ),
     PLAYERMODEL_OFFSET_CF = CFrame.new(
-        0, 0.4, -0.8,
+        0, 0.5, -0.8,
         -1, 0, 0,
         0, 1, 0,
         0, 0, -1
@@ -101,9 +101,10 @@ local function createCharacter(playerModel: Model?): Model
         if (not playerModel.PrimaryPart) then
             error("no PrimaryPart defined for the PlayerModel")
         end
-        playerModel.PrimaryPart.CFrame = rootPart.CFrame * PARAMS.PLAYERMODEL_OFFSET_CF
-        createParentedWeld(rootPart, playerModel.PrimaryPart)
-        playerModel.Parent = character
+        local plrMdlClone = playerModel:Clone()
+        plrMdlClone.PrimaryPart.CFrame = rootPart.CFrame * PARAMS.PLAYERMODEL_OFFSET_CF
+        createParentedWeld(rootPart, plrMdlClone.PrimaryPart)
+        plrMdlClone.Parent = character
     end
 
     return character
