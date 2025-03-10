@@ -21,13 +21,13 @@ local Simulation = {}
 Simulation.__index = Simulation
 
 function Simulation.new()
-    local self = setmetatable({}, Simulation)
+    local self = setmetatable({}, Simulation) :: any
 
-    self.states = {} :: BaseState.BaseStateType
+    self.states = {}
     self.currentState = nil
     self.currentStateId = nil
 
-    self.character = nil
+    self.character = Players.LocalPlayer.Character
 
     Players.LocalPlayer.CharacterAdded:Connect(function(char) self:onCharAdded(char) end)
     Players.LocalPlayer.CharacterRemoving:Connect(function(char) self:onCharRemoving(char) end)
@@ -73,7 +73,7 @@ function Simulation:onRootPartChanged()
     end
 end
 
-function Simulation:resetStateMachine()
+function Simulation:resetSimulation()
     if (self.currentState) then
         self.currentState:stateLeave()
     end
@@ -110,10 +110,14 @@ end
 function Simulation:onCharAdded(character: Model)
     self.character = character
 
-    self:resetStateMachine()
+    if (not character.PrimaryPart) then
+        error("A")
+    end
+
+    self:resetSimulation()
 
     if (primaryPartListener) then
-        primaryPartListener = nil
+        primaryPartListener:Disconnect()
     end
     primaryPartListener = character.PrimaryPart.Changed:Connect(function()
         self:onRootPartChanged()

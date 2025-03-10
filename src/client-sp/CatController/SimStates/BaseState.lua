@@ -4,24 +4,35 @@
 
 local Controller = script.Parent.Parent
 
-export type BaseStateType = {
-    new: (Model, Vector3) -> BaseStateType,
-    stateLeave: (BaseStateType) -> (),
-    stateEnter: (BaseStateType) -> (),
-    update: (BaseStateType, dt: number, inputController: table) -> number,
+export type SimulationType = {
+    transitionState: (newState: BaseStateType) -> (),
 
-    _simulation: any,
+    states: {[string]: BaseStateType},
+    currentstate: BaseStateType,
+
+    [string]: any
 }
 
-local BaseState = {} :: BaseStateType
-(BaseState :: any).__index = BaseState
+export type BaseStateType = {
+    new: (_simulation: SimulationType) -> BaseStateType,
+    stateLeave: (BaseStateType) -> (),
+    stateEnter: (BaseStateType) -> (),
+    update: (BaseStateType, dt: number) -> (),
+
+    _simulation: SimulationType,
+
+    [string]: any
+}
+
+local BaseState = {}
+BaseState.__index = BaseState
 
 function BaseState.new(_simulation)
-    local self = setmetatable({} :: BaseStateType, BaseState)
+    local self = setmetatable({} :: any, BaseState) :: BaseStateType
 
     self._simulation = _simulation
 
-    return self :: BaseStateType
+    return self
 end
 
 function BaseState:stateEnter()

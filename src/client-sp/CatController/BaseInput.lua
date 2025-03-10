@@ -3,28 +3,30 @@
 
 local ConnectionUtil = require(script.Parent.Common.ConnectionUtil)
 
-export type BaseMoveInputType  = {
-    new: () -> BaseMoveInputType,
-    getMoveVec: (BaseMoveInputType) -> Vector3,
-    getIsJumping: (BaseMoveInputType) -> boolean,
-    getIsRunning: (BaseMoveInputType) -> boolean,
-    enable: (BaseMoveInputType, enable: boolean) -> boolean,
+export type BaseInputType  = {
+    new: () -> BaseInputType,
+    getMoveVec: (BaseInputType) -> Vector3,
+    getIsJumping: (BaseInputType) -> boolean,
+    getIsRunning: (BaseInputType) -> boolean,
+    enable: (BaseInputType, enable: boolean) -> boolean,
 
     _connectionUtil: any,
 
     enabled: boolean,
     isJumping: boolean,
     isRunning: boolean,
-    moveVec: Vector3
+    moveVec: Vector3,
+
+    [string]: any
 }
 
 local VEC3_ZERO = Vector3.zero
 
-local BaseMoveInput = {} :: BaseMoveInputType
-(BaseMoveInput :: any).__index = BaseMoveInput
+local BaseMoveInput = {}
+BaseMoveInput.__index = BaseMoveInput
 
 function BaseMoveInput.new()
-    local self = setmetatable({}, BaseMoveInput)
+    local self = setmetatable({} :: any, BaseMoveInput) :: BaseInputType
 
     self._connectionUtil = ConnectionUtil.new()
 
@@ -33,7 +35,7 @@ function BaseMoveInput.new()
     self.isRunning = false
     self.moveVec = VEC3_ZERO
 
-    return self :: any
+    return self
 end
 
 function BaseMoveInput:getMoveVec(): Vector3
@@ -50,7 +52,6 @@ end
 
 function BaseMoveInput:enable(enable: boolean): boolean
     error("cannot enable abstract class BaseMoveInput", 2)
-    return false
 end
 
 return BaseMoveInput

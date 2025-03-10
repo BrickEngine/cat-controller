@@ -5,17 +5,21 @@ local CollisionGroups = require(ReplicatedStorage.Shared.CollisionGroups)
 
 local DEBUG = true
 local COLLIDER_DEBUG_COLOR3 = Color3.fromRGB(0, 0, 255)
+local ADD_BUOYANCY_SENSOR = true
 local CREATE_BASE_FORCES = true
+local USE_PLAYERMDL_MASS = false
 
 -----------------------------------------------------------------------------------------------------------------
 -- Character phys model parameters
 
 local PARAMS = {
+    ROOT_ATT_NAME = "Root",
+    PHYS_TAG_NAME = "PhysAssemblyPart",
     ROOTPART_SIZE = Vector3.new(0, 0, 0),
     MAINCOLL_SIZE = Vector3.new(1, 2, 2),
     LEGCOLL_SIZE = Vector3.new(2, 2, 2),
     ROOTPART_SHAPE = Enum.PartType.Block,
-    COLLIDER_SHAPE = Enum.PartType.Cylinder,
+    MAINCOLL_SHAPE = Enum.PartType.Cylinder,
     ROOTPART_CF = CFrame.identity,
     MAINCOLL_CF = CFrame.new(
         0, 0.5, 0,
@@ -50,10 +54,12 @@ local function setCollGroup(mdl: Model)
     end
 end
 
-local function unanchorMdl(mdl: Model)
-    for _, v in pairs(mdl:GetDescendants()) do
+local function setMdlTransparency(mdl: Model, val: number)
+    for _, v: Instance in pairs(mdl:GetChildren()) do
         if (v:IsA("BasePart")) then
-            v.Anchored = false
+            v.Transparency = val
+        elseif (v:IsA("Model")) then
+            setMdlTransparency(v, val)
         end
     end
 end
@@ -65,35 +71,55 @@ local function createPart(name: string, size: Vector3, cFrame: CFrame, shape: En
     return part
 end
 
-local function createParentedWeld(p0: Part, p1: Part)
+local function createParentedAttachment(name: string, parent: BasePart): Attachment
+    local attachment = Instance.new("Attachment")
+    attachment.Parent = parent
+    return attachment
+end
+
+local function createParentedWeld(p0: BasePart, p1: BasePart): WeldConstraint
     local weldConstraint = Instance.new("WeldConstraint")
     weldConstraint.Part0 = p0; weldConstraint.Part1 = p1
     weldConstraint.Parent = p0
+    return weldConstraint
 end
 
 local function createCharacter(playerModel: Model?): Model
     local character = Instance.new("Model")
     local rootPart = createPart("RootPart", PARAMS.ROOTPART_SIZE, PARAMS.ROOTPART_CF, PARAMS.ROOTPART_SHAPE)
-    local mainColl = createPart("MainColl", PARAMS.MAINCOLL_SIZE, PARAMS.MAINCOLL_CF, PARAMS.COLLIDER_SHAPE)
-    local legColl = createPart("LegColl", PARAMS.LEGCOLL_SIZE, PARAMS.LEGCOLL_CF, PARAMS.COLLIDER_SHAPE)
+    local mainColl = createPart("MainColl", PARAMS.MAINCOLL_SIZE, PARAMS.MAINCOLL_CF, PARAMS.MAINCOLL_SHAPE)
+    local legColl = createPart("LegColl", PARAMS.LEGCOLL_SIZE, PARAMS.LEGCOLL_CF, PARAMS.MAINCOLL_SHAPE)
 
     rootPart.Parent, mainColl.Parent, legColl.Parent = character, character, character
-    createParentedWeld(rootPart, mainColl); createParentedWeld(rootPart, legColl)
     rootPart.CanCollide, rootPart.CanQuery, rootPart.CanTouch = false, false, false
+    createParentedWeld(rootPart, mainColl)
+    createParentedWeld(rootPart, legColl)
     rootPart.Massless = true
     legColl.CanCollide = false
     character.PrimaryPart = rootPart
+    createParentedAttachment("Root", rootPart)
+
+    for _, p: Instance in pairs(character:GetChildren()) do
+        if (p:IsA("BasePart")) then
+            p:AddTag(PARAMS.PHYS_TAG_NAME)
+        end
+    end
 
     if (DEBUG) then
-        for _, p: BasePart in pairs(character:GetChildren()) do
-            p.Transparency = 0.5
-        end
+        setMdlTransparency(character, 0.5)
         mainColl.Color = COLLIDER_DEBUG_COLOR3
+    else
+        setMdlTransparency(character, 1)
+    end
+
+    if (ADD_BUOYANCY_SENSOR) then
+        local buoyancySensor = Instance.new("BuoyancySensor")
+        buoyancySensor.Parent = mainColl
     end
 
     if (not playerModel) then
         warn("no PlayerModel set")
-        
+
         local emptyPlayerModel = Instance.new("Model")
         emptyPlayerModel.Name = "PlayerModel"
         emptyPlayerModel.Parent = character
@@ -101,7 +127,18 @@ local function createCharacter(playerModel: Model?): Model
         if (not playerModel.PrimaryPart) then
             error("no PrimaryPart defined for the PlayerModel")
         end
+
         local plrMdlClone = playerModel:Clone()
+
+        for _, inst: Instance in pairs(plrMdlClone:GetDescendants()) do
+            if (inst:IsA("BasePart")) then
+                if (USE_PLAYERMDL_MASS) then
+                    inst:AddTag(PARAMS.PHYS_TAG_NAME)
+                else
+                    (inst :: BasePart).Massless = true
+                end
+            end
+        end
         plrMdlClone.PrimaryPart.CFrame = rootPart.CFrame * PARAMS.PLAYERMODEL_OFFSET_CF
         createParentedWeld(rootPart, plrMdlClone.PrimaryPart)
         plrMdlClone.Parent = character
@@ -110,18 +147,18 @@ local function createCharacter(playerModel: Model?): Model
     return character
 end
 
-local function createForces(mdl: Model)
-    local attachment = Instance.new("Attachment")
-    attachment.Name = "Root"
-    attachment.Parent = mdl.PrimaryPart
-    attachment.WorldAxis = Vector3.new(0, 1, 0)
+local function createBaseForces(mdl: Model)
+    local forcesAtt = Instance.new("Attachment")
+    forcesAtt.Name = "BaseForceAtt"
+    forcesAtt.Parent = mdl.PrimaryPart
+    forcesAtt.WorldAxis = Vector3.new(0, 1, 0)
 
     local aliOri = Instance.new("AlignOrientation")
     aliOri.Parent = mdl.PrimaryPart
     aliOri.Mode = Enum.OrientationAlignmentMode.OneAttachment
     aliOri.AlignType = Enum.AlignType.PrimaryAxisParallel
     aliOri.ReactionTorqueEnabled, aliOri.RigidityEnabled = true, true
-    aliOri.Attachment0 = attachment
+    aliOri.Attachment0 = forcesAtt
     aliOri.PrimaryAxis = Vector3.new(0, 1, 0)
 end
 
@@ -133,7 +170,7 @@ CharacterDef.__index = CharacterDef
 function CharacterDef.new()
     local self = setmetatable({}, CharacterDef)
 
-    self.PARAMS = PARAMS
+    self.PARAMS = table.freeze(PARAMS)
 
     return self
 end
@@ -145,7 +182,7 @@ function CharacterDef.createCharacter(playerModel: Model): Model
 
     local character = createCharacter(playerModel)
     if (CREATE_BASE_FORCES) then
-        createForces(character)
+        createBaseForces(character)
     end
     setCollGroup(character)
 

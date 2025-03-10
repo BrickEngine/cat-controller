@@ -1,3 +1,5 @@
+--!strict
+
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -6,7 +8,8 @@ local CollisionGroups = require(ReplicatedStorage.Shared.CollisionGroups)
 local NUM_RAYS = 32
 local PHI = 1.61803398875
 local RADIUS_OFFSET = 0.05
-local GND_CLEAR = 1
+local GND_CLEAR = 0.6
+local RAY_Y_OFFSET = 0.02
 local MAX_INCLINE = 60
 local VEC3_ZERO = Vector3.zero
 local VEC3_UP = Vector3.new(0, 1 ,0)
@@ -33,7 +36,7 @@ end
 
 local Phys = {}
 
-local function radiusDist(k, n, b)
+local function radiusDist(k: number, n: number, b: number)
 	if (k > n-b) then
 		return 1
 	else
@@ -53,7 +56,9 @@ function Phys.colliderCast(
 	rootPos: Vector3,
 	radius: number,
 	hipHeight: number,
-	rayParams: RaycastParams
+	rayParams: RaycastParams,
+	buoySensor: BuoyancySensor?,
+	calcWaterParts: boolean?
 )
 	local rayArr = {}
 	local grounded = false
@@ -62,28 +67,34 @@ function Phys.colliderCast(
     local normal = VEC3_UP
     local normAngle = 0
 
-	-- terrain water check
-	local waterDetRegion = Region3.new(
-		rootPos + VEC3_REGION_OFFSET - VEC3_REGION_SIZE,
-		rootPos + VEC3_REGION_OFFSET + VEC3_REGION_SIZE
-	)
-	local regionData = Workspace.Terrain:ReadVoxels(waterDetRegion, 4)
-	for i, d1 in ipairs(regionData) do
-		for _, d2 in pairs(d1) do
-			for _, d3 in pairs(d2) do
-				if (d3 == Enum.Material.Water) then
-					inWater = true; break
+	-- terrain water check, use BuoyancySensor if availible
+	if (buoySensor) then
+		inWater = buoySensor.FullySubmerged or buoySensor.TouchingSurface
+	else
+		local waterDetRegion = Region3.new(
+			rootPos + VEC3_REGION_OFFSET - VEC3_REGION_SIZE,
+			rootPos + VEC3_REGION_OFFSET + VEC3_REGION_SIZE
+		)
+		local regionData = Workspace.Terrain:ReadVoxels(waterDetRegion, 4)
+		for i, d1 in ipairs(regionData) do
+			for _, d2 in pairs(d1) do
+				for _, d3 in pairs(d2) do
+					if (d3 == Enum.Material.Water) then
+						inWater = true; break
+					end
 				end
 			end
 		end
 	end
 
-	-- parts with assigned Water coll group / "custom water"
-	local partsArr = Workspace:GetPartBoundsInRadius(
-		rootPos + VEC3_REGION_OFFSET, 2, WATER_OVERLAPPARAMS
-	)
-	if (#partsArr > 0) then
-		inWater = true
+	-- parts with assigned Water coll group, aka. "custom water"
+	if (calcWaterParts) then
+		local partsArr = Workspace:GetPartBoundsInRadius(
+			rootPos + VEC3_REGION_OFFSET, 2, WATER_OVERLAPPARAMS
+		)
+		if (#partsArr > 0) then
+			inWater = true
+		end
 	end
 
 	-- cylinder cast checks
@@ -92,13 +103,12 @@ function Phys.colliderCast(
 		local theta = i * 360 * PHI
 		local offsetX = r * math.cos(theta)
 		local offsetZ = r * math.sin(theta)
-		local rayPos = Vector3.new(
-			rootPos.X + offsetX,
-			rootPos.Y,
-			rootPos.Z + offsetZ
-		)
 		local ray = Workspace:Raycast(
-			rayPos,
+			Vector3.new(
+				rootPos.X + offsetX,
+				rootPos.Y + RAY_Y_OFFSET,
+				rootPos.Z + offsetZ
+			),
 			Vector3.new(0, -100, 0),
 			rayParams
 		)
@@ -126,8 +136,13 @@ function Phys.colliderCast(
 		end
 	end
 
-	--return grounded, gndHeight, normal, normAngle
-	return  {grounded, inWater, gndHeight, normal, normAngle} :: physData
+	return {
+        grounded = grounded,
+        inWater = inWater,
+        gndHeight = gndHeight,
+        normal = normal,
+        normalAngle = normAngle
+    } :: physData
 end
 
 return Phys.colliderCast

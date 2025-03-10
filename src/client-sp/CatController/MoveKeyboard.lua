@@ -22,14 +22,14 @@ MoveKeyboard.__index = MoveKeyboard
 function MoveKeyboard.new(CONTROL_PRIORITY: number)
     local self = setmetatable(BaseInput.new() :: any, MoveKeyboard)
 
-    self.CONTROL_PRIORITY = CONTROL_PRIORITY :: number
+    self.CONTROL_PRIORITY = CONTROL_PRIORITY
 
-    self.f_val = 0 :: number
-    self.b_val = 0 :: number
-    self.l_val = 0 :: number
-    self.r_val = 0 :: number
-	self.jumpInp = false :: boolean
-	self.runInp = false :: boolean
+    self.f_val = 0
+    self.b_val = 0
+    self.l_val = 0
+    self.r_val = 0
+	self.jumpInp = false
+	self.runInp = false
 
     return self
 end

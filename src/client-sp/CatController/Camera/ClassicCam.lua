@@ -91,6 +91,7 @@ function ClassicCamera:update(dt)
 		end
 
 		if (self:getIsMouseLocked()) then
+			print("LASLA")
 			-- We need to use the right vector of the camera after rotation, not before
 			local newLookCFrame: CFrame = self:calculateNewLookCFrameFromArg(overrideCameraLookVector, rotateInput)
 

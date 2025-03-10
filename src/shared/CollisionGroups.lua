@@ -5,5 +5,6 @@ local COLL_GROUPS = {
 	WATER = "Water",
 	IGNORE = "Ignore",
 }
+table.freeze(COLL_GROUPS)
 
 return COLL_GROUPS

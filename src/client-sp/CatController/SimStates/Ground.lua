@@ -1,51 +1,33 @@
 --!strict
 
-local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
-local Controller = script.Parent.Parent
-local BaseState = require(Controller.SimStates.BaseState)
-local PhysCheck = require(Controller.Common.PhysCheck)
-local InputManager = require(Controller.InputManager)
+local controller = script.Parent.Parent
+local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
+local InputManager = require(controller.InputManager)
+local BaseState = require(controller.SimStates.BaseState)
+local PhysCheck = require(controller.Common.PhysCheck)
+local PhysUtil = require(controller.Common.PhysUtil)
 
-local STATE_ID = 0
-
-local NORMALIZE_INPUT = false
 local GND_WALK_SPEED = 2.6
 local GND_RUN_SPEED = 7.2
 local CONST_MASS = 1
-local VEC3_CAST_OFFSET = Vector3.new(0,-0.5,0)
 local VEC3_ZERO = Vector3.zero
 local RAY_PARAMS = RaycastParams.new()
 RAY_PARAMS.CollisionGroup = "Player"
 RAY_PARAMS.IgnoreWater = true
 RAY_PARAMS.RespectCanCollide = true
 
-local function getModelMass(mdl: Model)
-	local mass = 0
-	for _, v in ipairs(mdl:GetChildren()) do
-		if v:IsA("BasePart") then
-			mass += v:GetMass()
-		else
-			mass += getModelMass(v)
-		end
-	end
-	return mass
-end
-
-local function getMoveVec()
-    if (NORMALIZE_INPUT) then
-        return InputManager:getMoveVec().Unit
-    end
-    return InputManager:getMoveVec()
-end
+local COLL_RADIUS = (CharacterDef.PARAMS.MAINCOLL_SIZE.X / 2) - 0.05
+local HIP_HEIGHT = CharacterDef.PARAMS.LEGCOLL_SIZE.Y
 
 local function calcWalkAccel(rootPos: Vector3, currentVel: number, dt: number): Vector3
     local target
     if (InputManager:getIsRunning()) then
-        target = rootPos + getMoveVec() * GND_RUN_SPEED
+        target = rootPos + InputManager:getMoveVec() * GND_RUN_SPEED
     else
-        target = rootPos + getMoveVec() * GND_WALK_SPEED
+        target = rootPos + InputManager:getMoveVec() * GND_WALK_SPEED
     end
     return 2 * ((target - rootPos) - currentVel * dt) / (dt * 0.4)
 end
@@ -69,13 +51,12 @@ local Ground = setmetatable({}, BaseState)
 Ground.__index = Ground
 
 function Ground.new(...)
-    local self = setmetatable(BaseState.new(...), Ground)
+    local self = setmetatable(BaseState.new(...) :: BaseState.BaseStateType, Ground) :: any
 
     self.character = self._simulation.character
-    self.vecForce = nil
-    self.alignOri = nil
+    self.vecForces = nil
 
-    return self :: BaseState.BaseStateType
+    return self
 end
 
 function Ground:stateEnter()
@@ -104,20 +85,20 @@ function Ground:update(dt: number)
     local primaryPart = self.character.PrimaryPart
     local currentVel = primaryPart.AssemblyLinearVelocity
     local moveAccel = calcWalkAccel(primaryPart.CFrame.Position, currentVel, dt)
-    local accelX = moveAccel.X * CONST_MASS
-    local accelZ = moveAccel.Z * CONST_MASS
+    local physMdlMass = PhysUtil.getModelMassByTag(self.character, CharacterDef.PARAMS.PHYS_TAG_NAME)
+    local weight = physMdlMass * Workspace.Gravity
+    local accelX = moveAccel.X * physMdlMass
+    local accelZ = moveAccel.Z * physMdlMass
 
-    local physData: PhysCheck.physData = PhysCheck(
-        primaryPart.CFrame.Position + VEC3_CAST_OFFSET,
-        2,
-        2,
-        RAY_PARAMS
-    )
+    local physData: PhysCheck.physData = PhysCheck(primaryPart.CFrame.Position, COLL_RADIUS, HIP_HEIGHT, RAY_PARAMS)
 
     -- if (not physData.grounded) then
     --     self._stateMachine:transitionState(self._stateMachine.states.Air)
     -- end
-    return STATE_ID
+    -- if (physData.inWater) then
+    --     self._stateMachine:transitionState(self._stateMachine.states.Water)
+    -- end
+    
 end
 
 return Ground
