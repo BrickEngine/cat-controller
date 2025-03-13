@@ -10,7 +10,7 @@ local DebugVisualize = require(script.Parent.DebugVisualize)
 local NUM_RAYS = 32
 local RADIUS_OFFSET = 0.05
 local GND_CLEAR = 0.45
-local RAY_Y_OFFSET = 0.05
+local RAY_Y_OFFSET = 0.2
 local MAX_INCLINE = 60 -- deg
 local GROUND_MODE = 0 -- 0: highest point; 1: point average; 2: lowest point
 
@@ -129,7 +129,7 @@ function Phys.colliderCast(
 
             normAngle = math.deg(math.acos(ray.Normal:Dot(Vector3.yAxis)))
 
-			if (rayGndPos >= gndHeight and ray.Distance <= adjHipHeight + GND_CLEAR + RAY_Y_OFFSET) then
+			if (rayGndPos >= gndHeight and ray.Distance <= adjHipHeight + GND_CLEAR) then
 				if (onSlope) then
 					if (normAngle <= MAX_INCLINE) then
                         normal = ray.Normal

@@ -254,6 +254,7 @@ function CameraModule:update(dt)
 		local currentCamera = game.Workspace.CurrentCamera :: Camera
 		currentCamera.CFrame = newCameraCFrame
 		currentCamera.Focus = newCameraFocus
+		currentCamera.FieldOfView = 100
 
 		if CamInput.getInputEnabled() then
 			CamInput.resetInputForFrameEnd()

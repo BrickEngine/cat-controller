@@ -1,6 +1,8 @@
 --!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local controller = script.Parent.Parent
@@ -13,12 +15,13 @@ local PhysUtil = require(controller.Common.PhysUtil)
 
 local DV = require(script.Parent.Parent.Common.DebugVisualize)
 
-local GND_WALK_SPEED = 1
-local GND_RUN_SPEED = 2
-local PHYS_SUBSTEP_NUM = 10
-local PHYS_DT = 0.045
+local GND_WALK_SPEED = 0.1
+local GND_RUN_SPEED = 0.2
+local PHYS_SUBSTEP_NUM = 3
+local PHYS_DT = 0.05
 local MOVE_DAMP = 5
 local JUMP_HEIGHT = 6
+local PHYS_DELTA = 2
 local LERP_DELTA = 0.9
 local COLL_RADIUS = CharacterDef.PARAMS.MAINCOLL_SIZE.X
 local HIP_HEIGHT = CharacterDef.PARAMS.LEGCOLL_SIZE.Y
@@ -31,9 +34,6 @@ ray_params.CollisionGroup = CollisionGroups.PLAYER
 ray_params.FilterType = Enum.RaycastFilterType.Exclude
 ray_params.IgnoreWater = true
 ray_params.RespectCanCollide = true
-
-local lastTargetVertPos = Vector3.new(0, -9999, 0)
-
 
 local function angleAbs(angle: number): number
 	while angle < 0 do
@@ -177,16 +177,7 @@ function Ground:update(dt: number)
     -- if (physData.inWater) then
     --     self._stateMachine:transitionState(self._stateMachine.states.Water)
     -- end
-
-    local currVertPos = Vector3.new(0, primaryPart.CFrame.Position.Y, 0)
-    local targetVertPos = Vector3.new(0, physData.gndHeight + HIP_HEIGHT, 0)
-    local downForce = Vector3.new(0, mdlMass * Workspace.Gravity, 0)
-    local vertForceDiff = Vector3.new(
-        0, math.clamp((targetVertPos - currVertPos).Y, 0, HIP_HEIGHT), 0
-    )
-
     local camRelMoveVec = getCFrameRelMoveVec(camCFrame)
-
     local currVertVel = Vector3.new(0, currVel.Y, 0)
     local horiForce = calcWalkAccel(
         camRelMoveVec, primaryPart.CFrame.Position, Vector3.new(currVel.X, 0, currVel.Z), mdlMass, phys_dt
@@ -197,22 +188,30 @@ function Ground:update(dt: number)
         if (math.abs(angleShortest(currAng, targetAng)) > math.pi*0.95) then
             targetAng = lerpAngle(currAng, targetAng, LERP_DELTA)
         end
-        -- self.forces.rotForce.CFrame = CFrame.lookAlong(
-        --     primaryPart.CFrame.Position, Vector3.new(math.cos(targetAng), 0, math.sin(targetAng))
-        -- )
-        self.forces.rotForce.CFrame = makeCFrame(Vector3.new(0, 1, 0), Vector3.new(math.cos(targetAng), 0, math.sin(targetAng)))
+        primaryPart.CFrame = CFrame.lookAlong(
+            primaryPart.CFrame.Position, Vector3.new(math.cos(targetAng), 0, math.sin(targetAng))
+        )
+        --self.forces.rotForce.CFrame = makeCFrame(Vector3.new(0, 1, 0), Vector3.new(math.cos(targetAng), 0, math.sin(targetAng)))
     end
 
-    if (physData.grounded and lastTargetVertPos.Magnitude <= targetVertPos.Magnitude + 0.5) then
-        --local targetForce = PhysUtil.forceFromDisplacementVec3(vertForceDiff, currVertVel, downForce, mdlMass, phys_dt)
+    if (physData.grounded) then
+        local currVertPos = Vector3.new(0, primaryPart.CFrame.Position.Y, 0)
+        local targetVertPos = Vector3.new(0, physData.gndHeight + HIP_HEIGHT, 0)
+        local downForce = Vector3.new(0, mdlMass * Workspace.Gravity, 0)
+        local vertForceDiff = Vector3.new(
+            0, math.clamp((targetVertPos - currVertPos).Y, 0, HIP_HEIGHT), 0
+        )
+
+        local vertForceCap =  Workspace.Gravity * 1000
         local vertForce = PhysUtil.subStepForceVec3(currVertVel, currVertPos, targetVertPos, downForce, mdlMass, PHYS_SUBSTEP_NUM, phys_dt)
-        --vertForce = targetForce
+        if (vertForce.Magnitude > vertForceCap) then
+            warn("HIGH FORCE")
+            --vertForce = vertForce.Unit * vertForceCap
+        end
         self.forces.moveForce.Force = vertForce + horiForce
     else
         self.forces.moveForce.Force = Vector3.new(horiForce.X, 0, horiForce.Z)
     end
-
-    lastTargetVertPos = targetVertPos
 
     DV.step()
 end

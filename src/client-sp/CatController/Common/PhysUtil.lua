@@ -41,13 +41,17 @@ function PhysUtil.forceFromDisplacementVec3(posDiff: Vector3, vel: Vector3, down
     return downForce + 2*(posDiff - vel*dt)/(dt*dt) * mass
 end
 
+function PhysUtil.forceFromDisplacement(posDiff: number, vel: number, downForce: number, mass: number, dt: number)
+    return downForce + 2*(posDiff - vel*dt)/(dt*dt) * mass
+end
+
+
 --[[
 substep for stable force prediction at low framerates
 - downForce should be: (0, mass * gravity, 0)
-- force arg calculated with PhysUtil.forceFromDisplacementVec3
+- force calculated with PhysUtil.forceFromDisplacementVec3
 ]]
 function PhysUtil.subStepForceVec3(vel: Vector3, pos: Vector3, targetPos: Vector3, downForce: Vector3, mass: number, numSteps: number, dt: number)
-
     local force = PhysUtil.forceFromDisplacementVec3((targetPos-pos), vel, downForce, mass, dt)
 
     local stepForce = force
@@ -55,14 +59,37 @@ function PhysUtil.subStepForceVec3(vel: Vector3, pos: Vector3, targetPos: Vector
     local stepPos = pos
     local t = dt / numSteps
 
-    for i=1, numSteps, 1 do
+    for i=1, numSteps-1, 1 do
         local stepNetForce = stepForce - downForce
 
         local predVel: Vector3 = (stepNetForce / mass)*t
         local predPosDisp: Vector3 = (vel*t) + (0.5*predVel*t)
         local predForce: Vector3 = downForce + 2*((targetPos - (stepPos + predPosDisp) - stepVel*t) / t*t)*mass
 
-        stepForce = (predForce + force) * 0.5
+        stepForce = (force + predForce) * 0.5
+        stepVel = (predVel + vel) * 0.5
+        stepPos = (predPosDisp + pos) * 0.5
+    end
+
+    return stepForce, stepVel, stepPos
+end
+
+function PhysUtil.subStepForce(vel: number, pos: number, targetPos: number, downForce: number, mass: number, numSteps: number, dt: number)
+    local force = PhysUtil.forceFromDisplacement((targetPos-pos), vel, downForce, mass, dt)
+
+    local stepForce = force
+    local stepVel = vel
+    local stepPos = pos
+    local t = dt / numSteps
+
+    for i=1, numSteps-1, 1 do
+        local stepNetForce = stepForce - downForce
+
+        local predVel: Vector3 = (stepNetForce / mass)*t
+        local predPosDisp: Vector3 = (vel*t) + (0.5*predVel*t)
+        local predForce: Vector3 = downForce + 2*((targetPos - (stepPos + predPosDisp) - stepVel*t) / t*t)*mass
+
+        stepForce = (force + predForce) * 0.5
         stepVel = (predVel + vel) * 0.5
         stepPos = (predPosDisp + pos) * 0.5
     end

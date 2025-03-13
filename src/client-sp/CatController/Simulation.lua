@@ -1,5 +1,6 @@
 --!strict
 
+local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26,6 +27,7 @@ function Simulation.new()
     self.states = {}
     self.currentState = nil
     self.currentStateId = nil
+    self.simUpdateConn = nil
 
     self.character = Players.LocalPlayer.Character
 
@@ -90,6 +92,13 @@ function Simulation:resetSimulation()
     }
     self.currentState = self.states.Ground
     self.currentState:stateEnter()
+
+    if (self.simUpdateConn :: RBXScriptConnection) then
+        self.simUpdateConn:Disconnect()
+    end
+    self.simUpdateConn = RunService.PreSimulation:Connect(function(dt)
+        self:update(dt)
+    end)
 end
 
 -- TESTING PURPOSES
@@ -123,9 +132,9 @@ function Simulation:onCharAdded(character: Model)
         self:onRootPartChanged()
     end)
 
-    RunService:BindToRenderStep(FUNCNAME_UPDATE, ACTION_PRIO, function(dt)
-        self:update(dt)
-    end)
+    -- RunService:BindToRenderStep(FUNCNAME_UPDATE, ACTION_PRIO, function(dt)
+    --     self:update(dt)
+    -- end)
 
     --TEST_DESPAWNING()
 end
