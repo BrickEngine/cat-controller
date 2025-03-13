@@ -9,7 +9,7 @@ local MoveTouch = nil -- TODO
 local lastInpType
 
 local ACTION_PRIO = 100
-local INPUT_NORM = false
+local INPUT_NORM = true
 local VEC3_ZERO = Vector3.zero
 
 local InputManager = {}
@@ -66,7 +66,12 @@ function InputManager:getMoveVec(): Vector3
         warn("no active input controller set"); return VEC3_ZERO
     end
     if (INPUT_NORM) then
-        return MoveKeyboard:getMoveVec().Unit
+        local vec: Vector3 = self.activeInputController:getMoveVec()
+        if (vec.Magnitude > 1) then
+            return vec.Unit
+        else
+            return vec
+        end
     else
         return self.activeInputController:getMoveVec()
     end

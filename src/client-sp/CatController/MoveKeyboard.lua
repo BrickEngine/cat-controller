@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 
 local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local BaseInput = require(script.Parent.BaseInput)
 local ContextActions = require(script.Parent.ContextActions)
@@ -14,6 +15,7 @@ local KEY_A = Enum.KeyCode.A
 local KEY_D = Enum.KeyCode.D
 local KEY_UP = Enum.KeyCode.Up
 local KEY_DOWN = Enum.KeyCode.Down
+local KEY_RUN = Enum.KeyCode.LeftControl
 local KEY_JUMP = Enum.KeyCode.Space
 
 local MoveKeyboard = setmetatable({}, BaseInput)
@@ -56,7 +58,7 @@ function MoveKeyboard:enable(enable: boolean)
     return true
 end
 
-function MoveKeyboard:updateSprint()
+function MoveKeyboard:updateRun()
 	self.isRunning = self.runInp
 end
 
@@ -84,12 +86,12 @@ function MoveKeyboard:bindActions()
 		return Enum.ContextActionResult.Pass
 	end
 	local handleMoveLeft = function(actionName, inputState, inputObject)
-		self.l_val = (inputState == Enum.UserInputState.Begin) and -1 or 0
+		self.l_val = (inputState == Enum.UserInputState.Begin) and 1 or 0
 		self:updateInputVec(inputState)
 		return Enum.ContextActionResult.Pass
 	end
 	local handleMoveRight = function(actionName, inputState, inputObject)
-		self.r_val = (inputState == Enum.UserInputState.Begin) and 1 or 0
+		self.r_val = (inputState == Enum.UserInputState.Begin) and -1 or 0
 		self:updateInputVec(inputState)
 		return Enum.ContextActionResult.Pass
 	end
@@ -98,18 +100,26 @@ function MoveKeyboard:bindActions()
 		self:updateJump()
 		return Enum.ContextActionResult.Pass
 	end
+	local handleRunAction = function(inputObject)
+		self.runInp = UserInputService:IsKeyDown(inputObject)
+		self:updateRun()
+	end
 
 	ContextActionService:BindActionAtPriority(ContextActions.MOVE_F, handleMoveForward, false, self.CONTROL_PRIORITY, KEY_W, KEY_UP)
 	ContextActionService:BindActionAtPriority(ContextActions.MOVE_B, handleMoveBackward, false, self.CONTROL_PRIORITY, KEY_S, KEY_DOWN)
 	ContextActionService:BindActionAtPriority(ContextActions.MOVE_L, handleMoveLeft, false, self.CONTROL_PRIORITY, KEY_A)
 	ContextActionService:BindActionAtPriority(ContextActions.MOVE_R, handleMoveRight, false, self.CONTROL_PRIORITY, KEY_D)
 	ContextActionService:BindActionAtPriority(ContextActions.JUMP, handleJumpAction, false, self.CONTROL_PRIORITY, KEY_JUMP)
+	--ContextActionService:BindActionAtPriority(ContextActions.RUN, handleRunAction, false, self.CONTROL_PRIORITY, KEY_RUN)
+	RunService:BindToRenderStep(ContextActions.RUN, 100, function() handleRunAction(KEY_RUN) end)
 
 	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_F, function() ContextActionService:UnbindAction(ContextActions.MOVE_F) end)
 	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_B, function() ContextActionService:UnbindAction(ContextActions.MOVE_B) end)
 	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_L, function() ContextActionService:UnbindAction(ContextActions.MOVE_L) end)
 	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_R, function() ContextActionService:UnbindAction(ContextActions.MOVE_R) end)
 	self._connectionUtil:trackBoundFunction(ContextActions.JUMP, function() ContextActionService:UnbindAction(ContextActions.JUMP) end)
+	--self._connectionUtil:trackBoundFunction(ContextActions.RUN, function() ContextActionService:UnbindAction(ContextActions.RUN) end)
+	self._connectionUtil:trackBoundFunction(ContextActions.RUN, function() RunService:UnbindFromRenderStep(ContextActions.RUN) end)
 end
 
 function MoveKeyboard:connectFocusEventListeners()
@@ -119,7 +129,7 @@ function MoveKeyboard:connectFocusEventListeners()
 		self.jumpInp, self.runInp = false, false
 
 		self:updateJump()
-		self:updateSprint()
+		self:updateRun()
 	end
 
 	local function onTextFocusGained(textboxFocused)
@@ -128,7 +138,7 @@ function MoveKeyboard:connectFocusEventListeners()
 		self.jumpInp, self.runInp = false, false
 
 		self:updateJump()
-		self:updateSprint()
+		self:updateRun()
 	end
 
 	self._connectionUtil:trackConnection("textBoxFocusReleased", UserInputService.TextBoxFocusReleased:Connect(onFocusReleased))

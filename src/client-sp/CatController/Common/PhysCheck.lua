@@ -5,12 +5,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CollisionGroups = require(ReplicatedStorage.Shared.CollisionGroups)
 
+local DebugVisualize = require(script.Parent.DebugVisualize)
+
 local NUM_RAYS = 32
-local PHI = 1.61803398875
 local RADIUS_OFFSET = 0.05
-local GND_CLEAR = 0.6
-local RAY_Y_OFFSET = 0.02
-local MAX_INCLINE = 60
+local GND_CLEAR = 0.45
+local RAY_Y_OFFSET = 0.05
+local MAX_INCLINE = 60 -- deg
+local GROUND_MODE = 0 -- 0: highest point; 1: point average; 2: lowest point
+
+local PHI = 1.61803398875
 local VEC3_ZERO = Vector3.zero
 local VEC3_UP = Vector3.new(0, 1 ,0)
 local VEC3_REGION_SIZE = Vector3.new(4, 4, 4)
@@ -44,6 +48,11 @@ local function radiusDist(k: number, n: number, b: number)
 	end
 end
 
+
+local function checkStepCondition()
+	
+end
+
 export type physData = {
 	grounded: boolean,
 	inWater: boolean,
@@ -65,6 +74,7 @@ function Phys.colliderCast(
 	local inWater = false
 	local gndHeight = -9999
     local normal = VEC3_UP
+	local adjHipHeight = hipHeight + RAY_Y_OFFSET
     local normAngle = 0
 
 	-- terrain water check, use BuoyancySensor if availible
@@ -118,10 +128,8 @@ function Phys.colliderCast(
 			table.insert(rayArr, ray)
 
             normAngle = math.deg(math.acos(ray.Normal:Dot(Vector3.yAxis)))
-			--if (ray.Distance <= hipHeight + GND_CLEAR) then
-			--	grounded = true
-			--end
-			if (rayGndPos > gndHeight and ray.Distance <= hipHeight + GND_CLEAR) then
+
+			if (rayGndPos >= gndHeight and ray.Distance <= adjHipHeight + GND_CLEAR + RAY_Y_OFFSET) then
 				if (onSlope) then
 					if (normAngle <= MAX_INCLINE) then
                         normal = ray.Normal
@@ -132,6 +140,17 @@ function Phys.colliderCast(
 					gndHeight = rayGndPos
 					grounded = true
 				end
+			end
+
+			-- DEBUG
+			do
+				local rayColor
+				if (rayGndPos >= gndHeight and ray.Distance <= adjHipHeight + GND_CLEAR + RAY_Y_OFFSET) then
+					rayColor = Color3.new(0, 255, 0)
+				else
+					rayColor = Color3.new(255, 0, 0)
+				end
+				DebugVisualize.point(ray.Position, rayColor)
 			end
 		end
 	end

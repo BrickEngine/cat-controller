@@ -4,10 +4,13 @@ local RunService = game:GetService("RunService")
 local CollisionGroups = require(ReplicatedStorage.Shared.CollisionGroups)
 
 local DEBUG = true
-local COLLIDER_DEBUG_COLOR3 = Color3.fromRGB(0, 0, 255)
+local DEBUG_DISABLE_CHAR = false
+local DEBUG_COLL_COLOR3 = Color3.fromRGB(0, 0, 255)
+
 local ADD_BUOYANCY_SENSOR = true
 local CREATE_BASE_FORCES = true
 local USE_PLAYERMDL_MASS = false
+local MAIN_ROOT_PRIO = 100
 
 -----------------------------------------------------------------------------------------------------------------
 -- Character phys model parameters
@@ -95,6 +98,7 @@ local function createCharacter(playerModel: Model?): Model
     createParentedWeld(rootPart, mainColl)
     createParentedWeld(rootPart, legColl)
     rootPart.Massless = true
+    rootPart.RootPriority = MAIN_ROOT_PRIO
     legColl.CanCollide = false
     character.PrimaryPart = rootPart
     createParentedAttachment("Root", rootPart)
@@ -107,9 +111,7 @@ local function createCharacter(playerModel: Model?): Model
 
     if (DEBUG) then
         setMdlTransparency(character, 0.5)
-        mainColl.Color = COLLIDER_DEBUG_COLOR3
-    else
-        setMdlTransparency(character, 1)
+        mainColl.Color = DEBUG_COLL_COLOR3
     end
 
     if (ADD_BUOYANCY_SENSOR) then
@@ -117,7 +119,7 @@ local function createCharacter(playerModel: Model?): Model
         buoyancySensor.Parent = mainColl
     end
 
-    if (not playerModel) then
+    if (not playerModel or DEBUG_DISABLE_CHAR) then
         warn("no PlayerModel set")
 
         local emptyPlayerModel = Instance.new("Model")
@@ -132,9 +134,7 @@ local function createCharacter(playerModel: Model?): Model
 
         for _, inst: Instance in pairs(plrMdlClone:GetDescendants()) do
             if (inst:IsA("BasePart")) then
-                if (USE_PLAYERMDL_MASS) then
-                    inst:AddTag(PARAMS.PHYS_TAG_NAME)
-                else
+                if (not USE_PLAYERMDL_MASS) then
                     (inst :: BasePart).Massless = true
                 end
             end

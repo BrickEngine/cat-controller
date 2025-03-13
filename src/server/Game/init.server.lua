@@ -1,9 +1,11 @@
+local PhysicsService = game:GetService("PhysicsService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StarterPlayer = game:GetService("StarterPlayer")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 
 local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
+local CollisionGroups = require(ReplicatedStorage.Shared.CollisionGroups)
 local NetApiDef = require(ReplicatedStorage.Shared.NetworkApiDef)
 local ServApi = require(script.ServApi)
 
@@ -14,10 +16,17 @@ local PLAYERS_FOLD_NAME = "ActivePlayers"
 
 -- Workspace init
 do
+    -- create workspace folder for runtime player characters
     if (not Workspace:FindFirstChild(PLAYERS_FOLD_NAME)) then
         local plrFold = Instance.new("Folder")
         plrFold.Name = PLAYERS_FOLD_NAME
         plrFold.Parent = Workspace
+    end
+    -- check if all collision groups are registered
+    for _, groupName in pairs(CollisionGroups) do
+        if (not PhysicsService:IsCollisionGroupRegistered(groupName)) then
+            warn("unregistered collision group: " .. groupName)
+        end
     end
 end
 

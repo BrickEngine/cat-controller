@@ -5,6 +5,7 @@ local Actions = {
     MOVE_F = "moveForwardAction",
     MOVE_B = "moveBackwardAction",
     JUMP = "jumpAction",
+    RUN = "runAction",
     SPEED_U = "speedUpAction",
     SPEED_D = "speedDownAction",
     -- camera
