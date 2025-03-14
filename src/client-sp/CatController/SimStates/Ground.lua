@@ -15,8 +15,8 @@ local PhysUtil = require(controller.Common.PhysUtil)
 
 local DV = require(script.Parent.Parent.Common.DebugVisualize)
 
-local GND_WALK_SPEED = 0.1
-local GND_RUN_SPEED = 0.2
+local GND_WALK_SPEED = 1
+local GND_RUN_SPEED = 5
 local PHYS_SUBSTEP_NUM = 3
 local PHYS_DT = 0.05
 local MOVE_DAMP = 5
@@ -73,14 +73,14 @@ local function makeCFrame(up, look)
 	return CFrame.new(0, 0, 0, rightu.x, upu.x, looku.x, rightu.y, upu.y, looku.y, rightu.z, upu.z, looku.z)
 end
 
-local function calcWalkAccel(moveVec: Vector3, rootPos: Vector3, currVel: Vector3, mass: number, dt: number): Vector3
+local function calcWalkAccel(moveVec: Vector3, rootPos: Vector3, currVel: Vector3, dt: number): Vector3
     local target
     if (InputManager:getIsRunning()) then
         target = rootPos - moveVec*GND_RUN_SPEED
     else
         target = rootPos - moveVec*GND_WALK_SPEED
     end
-    return (2*((target - rootPos) - currVel*dt)/(dt*dt*MOVE_DAMP)) * mass
+    return 2*((target - rootPos) - currVel*dt)/(dt*dt*MOVE_DAMP)
 end
 
 local function createRotForce(mdl: Model)
@@ -93,15 +93,12 @@ local function createRotForce(mdl: Model)
     --     0, 1, 0,
     --     -1, 0, 0
     -- )
-    local att2 = Instance.new("Attachment")
-    att2.Parent = Workspace.Terrain
     local aliOri = Instance.new("AlignOrientation")
     --aliOri.Mode = Enum.OrientationAlignmentMode.OneAttachment
     --aliOri.AlignType = Enum.AlignType.PrimaryAxisPerpendicular
-    --aliOri.RigidityEnabled = true
-    --aliOri.ReactionTorqueEnabled = true
-    aliOri.Attachment0 = att2
-    aliOri.Attachment1 = forceAtt
+    aliOri.RigidityEnabled = true
+    aliOri.ReactionTorqueEnabled = true
+    aliOri.Attachment0 = forceAtt
     aliOri.Parent = mdl.PrimaryPart
     --aliOri.CFrame = mdl.PrimaryPart.CFrame
 
@@ -120,6 +117,15 @@ local function createVecForce(mdl: Model)
     vecForce.Force = VEC3_ZERO
 
     return vecForce
+end
+
+-- dt = elapsed time
+-- s = start
+-- e = end
+-- t = duration (total time)
+local function easeOutQuart(dt, t, s, e)
+    dt = dt/t - 1
+    return -(e-s) * (dt^4 - 1) + s
 end
 
 ---------------------------------------------------------------------------------------
@@ -156,13 +162,16 @@ function Ground:stateLeave()
     end
 end
 
+local lastAccelY = 0
 function Ground:update(dt: number)
-    local primaryPart = self.character.PrimaryPart :: BasePart
-    local camCFrame = Workspace.CurrentCamera.CFrame
-    local mdlMass = primaryPart.AssemblyMass
-    local currVel = primaryPart.AssemblyLinearVelocity
-    local jumpInitVel = math.sqrt(Workspace.Gravity * 2 * JUMP_HEIGHT)
-    local phys_dt = math.max(PHYS_DT, dt)
+    local primaryPart: BasePart = self.character.PrimaryPart
+    local camCFrame: CFrame = Workspace.CurrentCamera.CFrame
+    local currVel: Vector3 = primaryPart.AssemblyLinearVelocity
+    local currPos: Vector3 = primaryPart.CFrame.Position
+    local mass: number = primaryPart.AssemblyMass
+    local phys_dt: number = math.max(PHYS_DT, dt)
+
+    local jumpInitVel: number = math.sqrt(Workspace.Gravity * 2 * JUMP_HEIGHT)
 
     local physData: PhysCheck.physData = PhysCheck(
         primaryPart.CFrame.Position,
@@ -178,39 +187,34 @@ function Ground:update(dt: number)
     --     self._stateMachine:transitionState(self._stateMachine.states.Water)
     -- end
     local camRelMoveVec = getCFrameRelMoveVec(camCFrame)
-    local currVertVel = Vector3.new(0, currVel.Y, 0)
-    local horiForce = calcWalkAccel(
-        camRelMoveVec, primaryPart.CFrame.Position, Vector3.new(currVel.X, 0, currVel.Z), mdlMass, phys_dt
+    local horiAccelVec = calcWalkAccel(
+        camRelMoveVec, primaryPart.CFrame.Position, Vector3.new(currVel.X, 0, currVel.Z), phys_dt
     )
+    -- primaryPart rotation based on vecForce direction
     if (currVel.Magnitude > 0.05) then
         local currAng = math.atan2(primaryPart.CFrame.LookVector.Z, primaryPart.CFrame.LookVector.X)
         local targetAng = math.atan2(currVel.Z, currVel.X)
         if (math.abs(angleShortest(currAng, targetAng)) > math.pi*0.95) then
             targetAng = lerpAngle(currAng, targetAng, LERP_DELTA)
         end
-        primaryPart.CFrame = CFrame.lookAlong(
-            primaryPart.CFrame.Position, Vector3.new(math.cos(targetAng), 0, math.sin(targetAng))
-        )
+        -- primaryPart.CFrame = CFrame.lookAlong(
+        --     primaryPart.CFrame.Position, Vector3.new(math.cos(targetAng), 0, math.sin(targetAng))
+        -- )
         --self.forces.rotForce.CFrame = makeCFrame(Vector3.new(0, 1, 0), Vector3.new(math.cos(targetAng), 0, math.sin(targetAng)))
     end
 
     if (physData.grounded) then
-        local currVertPos = Vector3.new(0, primaryPart.CFrame.Position.Y, 0)
-        local targetVertPos = Vector3.new(0, physData.gndHeight + HIP_HEIGHT, 0)
-        local downForce = Vector3.new(0, mdlMass * Workspace.Gravity, 0)
-        local vertForceDiff = Vector3.new(
-            0, math.clamp((targetVertPos - currVertPos).Y, 0, HIP_HEIGHT), 0
-        )
+        local currPosY = currPos.Y
+        local targetPosY = physData.gndHeight + HIP_HEIGHT
+        local gravity = Workspace.Gravity
+        local accelY = 0
 
-        local vertForceCap =  Workspace.Gravity * 1000
-        local vertForce = PhysUtil.subStepForceVec3(currVertVel, currVertPos, targetVertPos, downForce, mdlMass, PHYS_SUBSTEP_NUM, phys_dt)
-        if (vertForce.Magnitude > vertForceCap) then
-            warn("HIGH FORCE")
-            --vertForce = vertForce.Unit * vertForceCap
-        end
-        self.forces.moveForce.Force = vertForce + horiForce
+        accelY = PhysUtil.substepAccel(currVel.Y, currPosY, targetPosY, gravity, PHYS_SUBSTEP_NUM, phys_dt)
+        --accelY = PhysUtil.accelFromDispl((targetPosY-currPosY), currVel.Y, gravity, phys_dt)
+        --accelY = math.max(-1, accelY)
+        self.forces.moveForce.Force = (Vector3.new(0, accelY, 0) + horiAccelVec)*mass
     else
-        self.forces.moveForce.Force = Vector3.new(horiForce.X, 0, horiForce.Z)
+        self.forces.moveForce.Force = Vector3.new(horiAccelVec.X, 0, horiAccelVec.Z)
     end
 
     DV.step()

@@ -36,46 +36,60 @@ function PhysUtil.unanchorModel(mdl: Model)
     end
 end
 
--- calculate Force based on displacement and current velocity of assembly
-function PhysUtil.forceFromDisplacementVec3(posDiff: Vector3, vel: Vector3, downForce: Vector3, mass: number, dt: number)
-    return downForce + 2*(posDiff - vel*dt)/(dt*dt) * mass
+-- calculate accel based on displacement and current vel of assembly
+function PhysUtil.accelFromDispl(posDiff: number, vel: number, downForce: number, dt: number)
+    --print(posDiff)
+    local fac = 1
+    if (posDiff <= 0.5) then
+        fac = posDiff
+    end
+    return downForce + (2*(posDiff - vel*dt))/(dt*dt)
 end
-
-function PhysUtil.forceFromDisplacement(posDiff: number, vel: number, downForce: number, mass: number, dt: number)
-    return downForce + 2*(posDiff - vel*dt)/(dt*dt) * mass
-end
-
 
 --[[
-substep for stable force prediction at low framerates
-- downForce should be: (0, mass * gravity, 0)
-- force calculated with PhysUtil.forceFromDisplacementVec3
+substep for stable accel prediction at low framerates (high dt)
+- initial accel calculated with PhysUtil.forceFromDisplacementVec3
+- downForce should be positive
 ]]
-function PhysUtil.subStepForceVec3(vel: Vector3, pos: Vector3, targetPos: Vector3, downForce: Vector3, mass: number, numSteps: number, dt: number)
-    local force = PhysUtil.forceFromDisplacementVec3((targetPos-pos), vel, downForce, mass, dt)
+function PhysUtil.substepAccel(vel: number, pos: number, targetPos: number, downForce: number, numSteps: number, dt: number)
+    local accel = PhysUtil.accelFromDispl((targetPos-pos), vel, downForce, dt)
 
-    local stepForce = force
+    local stepAccel = accel
     local stepVel = vel
     local stepPos = pos
     local t = dt / numSteps
 
     for i=1, numSteps-1, 1 do
-        local stepNetForce = stepForce - downForce
+        local stepNetAccel = stepAccel - downForce
 
-        local predVel: Vector3 = (stepNetForce / mass)*t
+        local predVel: Vector3 = stepNetAccel*t
         local predPosDisp: Vector3 = (vel*t) + (0.5*predVel*t)
-        local predForce: Vector3 = downForce + 2*((targetPos - (stepPos + predPosDisp) - stepVel*t) / t*t)*mass
+        local predAccel: Vector3 = downForce + 2*((targetPos - (stepPos + predPosDisp) - stepVel*t) / t*t)
 
-        stepForce = (force + predForce) * 0.5
+        stepAccel = (accel + predAccel) * 0.5
         stepVel = (predVel + vel) * 0.5
         stepPos = (predPosDisp + pos) * 0.5
     end
 
-    return stepForce, stepVel, stepPos
+    return stepAccel, stepVel, stepPos
 end
 
-function PhysUtil.subStepForce(vel: number, pos: number, targetPos: number, downForce: number, mass: number, numSteps: number, dt: number)
-    local force = PhysUtil.forceFromDisplacement((targetPos-pos), vel, downForce, mass, dt)
+function PhysUtil.stepperVec3(pos: Vector3, vel: Vector3, targetPos: Vector3, stiffness: number, damping: number, precision: number, dt: number)
+    local force = -stiffness*(pos - targetPos)
+    local dampForce = damping*vel
+    local accel = force - dampForce
+
+    local stepVel = vel*accel*dt
+    local stepPos = pos*vel*dt
+
+    if ((stepVel.Magnitude < precision) and ((targetPos - stepPos).Magnitude < precision)) then
+        return targetPos, 0
+    end
+    return stepPos, stepVel
+end
+
+function PhysUtil.subStepForceVec3(vel: Vector3, pos: Vector3, targetPos: Vector3, downForce: Vector3, mass: number, numSteps: number, dt: number)
+    local force = PhysUtil.forceFromDisplacementVec3((targetPos-pos), vel, downForce, mass, dt)
 
     local stepForce = force
     local stepVel = vel
