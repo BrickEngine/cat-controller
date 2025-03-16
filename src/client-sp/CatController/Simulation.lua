@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
+local DebugVisualize = require(script.Parent.Common.DebugVisualize)
 
 local simStates = script.Parent.SimStates
 local BaseState = require(simStates.BaseState)
@@ -47,6 +48,15 @@ end
 
 ------------------------------------------------------------------------------------------------------------------------------
 
+-- should be bound to RunService.PreSimulation
+function Simulation:update(dt: number)
+    if (not self.character.PrimaryPart) then
+        error("missing PrimaryPart of character, skipping simulation update"); return
+    end
+    self.currentState:update(dt)
+    DebugVisualize.step()
+end
+
 function Simulation:transitionState(newState: BaseState.BaseStateType)
     if (not newState) then
         error("cannot transition to nonexistent state")
@@ -61,13 +71,6 @@ function Simulation:getCurrentStateId()
     return self.currentStateId
 end
 
-function Simulation:update(dt: number)
-    if (not self.character.PrimaryPart) then
-        error("missing PrimaryPart of character, skipping update"); return
-    end
-    self.currentState:update(dt)
-end
-
 function Simulation:onRootPartChanged()
     if (not self.character.PrimaryPart) then
         warn("something removed the PrimaryPart, halting simulation")
@@ -79,6 +82,9 @@ function Simulation:resetSimulation()
     if (self.currentState) then
         self.currentState:stateLeave()
     end
+    -- TODO: add a state:destroy() function to each state, which is called here
+    -- all state controlled instances will be reacted with .new() instead of :stateEnter()
+    -- any forces that are required for the state are enabled with state:stateEnter(), and disabled with state:stateLeave()
     if (self.states) then
         for name, _ in pairs(self.states) do
             self.states[name] = nil
