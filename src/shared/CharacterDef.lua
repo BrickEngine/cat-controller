@@ -43,7 +43,7 @@ local PARAMS = {
         0, 0, -1
     ),
     PHYS_PROPERTIES = PhysicalProperties.new(
-        1, 0, 0, 100, 100
+        50, 0, 0, 100, 100
     )
 }
 
@@ -119,6 +119,7 @@ local function createCharacter(playerModel: Model?): Model
         buoyancySensor.Parent = mainColl
     end
 
+    -- add PlayerModel
     if (not playerModel or DEBUG_DISABLE_CHAR) then
         warn("no PlayerModel set")
 
@@ -131,14 +132,17 @@ local function createCharacter(playerModel: Model?): Model
         end
 
         local plrMdlClone = playerModel:Clone()
+        local originalPP = plrMdlClone.PrimaryPart
 
         for _, inst: Instance in pairs(plrMdlClone:GetDescendants()) do
             if (inst:IsA("BasePart")) then
+                inst.Parent = character
                 if (not USE_PLAYERMDL_MASS) then
                     (inst :: BasePart).Massless = true
                 end
             end
         end
+        plrMdlClone.PrimaryPart = originalPP
         plrMdlClone.PrimaryPart.CFrame = rootPart.CFrame * PARAMS.PLAYERMODEL_OFFSET_CF
         createParentedWeld(rootPart, plrMdlClone.PrimaryPart)
         plrMdlClone.Parent = character

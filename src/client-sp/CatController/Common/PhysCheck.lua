@@ -9,9 +9,8 @@ local DebugVisualize = require(script.Parent.DebugVisualize)
 
 local NUM_RAYS = 32
 local RADIUS_OFFSET = 0.05
-local GND_CLEAR = 0.45
+local GND_CLEAR = 0.5
 local RAY_Y_OFFSET = 0.2
-local MAX_INCLINE = 60 -- deg
 local GROUND_MODE = 0 -- 0: highest point; 1: point average; 2: lowest point
 
 local PHI = 1.61803398875
@@ -58,28 +57,30 @@ export type physData = {
 	inWater: boolean,
 	gndHeight: number,
 	normal: Vector3,
-	normalAngle: number
+	normalAngle: number,
 }
 
 function Phys.colliderCast(
 	rootPos: Vector3,
 	radius: number,
 	hipHeight: number,
+	maxIncline: number,
 	rayParams: RaycastParams,
 	buoySensor: BuoyancySensor?,
 	calcWaterParts: boolean?
 )
+	local _grounded = false
+	local _inWater = false
+	local _gndHeight = -9999
+    local _normal = VEC3_UP
+    local _normalAngle = 0
+
 	local rayArr = {}
-	local grounded = false
-	local inWater = false
-	local gndHeight = -9999
-    local normal = VEC3_UP
 	local adjHipHeight = hipHeight + RAY_Y_OFFSET
-    local normAngle = 0
 
 	-- terrain water check, use BuoyancySensor if availible
 	if (buoySensor) then
-		inWater = buoySensor.FullySubmerged or buoySensor.TouchingSurface
+		_inWater = buoySensor.FullySubmerged or buoySensor.TouchingSurface
 	else
 		local waterDetRegion = Region3.new(
 			rootPos + VEC3_REGION_OFFSET - VEC3_REGION_SIZE,
@@ -90,7 +91,7 @@ function Phys.colliderCast(
 			for _, d2 in pairs(d1) do
 				for _, d3 in pairs(d2) do
 					if (d3 == Enum.Material.Water) then
-						inWater = true; break
+						_inWater = true; break
 					end
 				end
 			end
@@ -103,7 +104,7 @@ function Phys.colliderCast(
 			rootPos + VEC3_REGION_OFFSET, 2, WATER_OVERLAPPARAMS
 		)
 		if (#partsArr > 0) then
-			inWater = true
+			_inWater = true
 		end
 	end
 
@@ -127,25 +128,29 @@ function Phys.colliderCast(
 			local rayGndPos = ray.Position.Y
 			table.insert(rayArr, ray)
 
-            normAngle = math.deg(math.acos(ray.Normal:Dot(Vector3.yAxis)))
+            _normalAngle = math.deg(math.acos(ray.Normal:Dot(Vector3.yAxis)))
 
-			if (rayGndPos >= gndHeight and ray.Distance <= adjHipHeight + GND_CLEAR) then
+			if (rayGndPos >= _gndHeight and ray.Distance <= adjHipHeight + GND_CLEAR) then
 				if (onSlope) then
-					if (normAngle <= MAX_INCLINE) then
-                        normal = ray.Normal
-						gndHeight = rayGndPos
-						grounded = true
+					if (_normalAngle <= maxIncline) then
+                        _normal = ray.Normal
+						_gndHeight = rayGndPos
+						_grounded = true
 					end
 				else
-					gndHeight = rayGndPos
-					grounded = true
+					_gndHeight = rayGndPos
+					_grounded = true
 				end
 			end
 
 			-- DEBUG
-			do
+			if (DebugVisualize.enabled) then
 				local rayColor
-				if (rayGndPos >= gndHeight and ray.Distance <= adjHipHeight + GND_CLEAR + RAY_Y_OFFSET) then
+				if (
+					rayGndPos >= _gndHeight
+					and ray.Distance <= adjHipHeight + GND_CLEAR
+					and _normalAngle <= maxIncline
+				) then
 					rayColor = Color3.new(0, 255, 0)
 				else
 					rayColor = Color3.new(255, 0, 0)
@@ -156,11 +161,11 @@ function Phys.colliderCast(
 	end
 
 	return {
-        grounded = grounded,
-        inWater = inWater,
-        gndHeight = gndHeight,
-        normal = normal,
-        normalAngle = normAngle
+        grounded = _grounded,
+        inWater = _inWater,
+        gndHeight = _gndHeight,
+        normal = _normal,
+        normalAngle = _normalAngle,
     } :: physData
 end
 

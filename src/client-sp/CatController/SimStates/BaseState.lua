@@ -18,6 +18,7 @@ export type BaseStateType = {
     stateLeave: (BaseStateType) -> (),
     stateEnter: (BaseStateType) -> (),
     update: (BaseStateType, dt: number) -> (),
+    destroy: (BaseStateType) -> (),
 
     _simulation: SimulationType,
 
@@ -44,7 +45,11 @@ function BaseState:stateLeave()
 end
 
 function BaseState:update(dt: number)
-    error("cannot call update of abstract BaseState class", 2)
+    error("cannot call update of abstract BaseState", 2)
+end
+
+function BaseState:destroy()
+    error("cannot call destroy of abstract BaseState", 2)
 end
 
 return BaseState
