@@ -51,8 +51,10 @@ end
 -- should be bound to RunService.PreSimulation
 function Simulation:update(dt: number)
     if (not self.character.PrimaryPart) then
-        error("missing PrimaryPart of character, skipping simulation update"); return
+        warn("missing PrimaryPart of character, skipping simulation update")
+        self.simUpdateConn:Disconnect(); return
     end
+
     self.currentState:update(dt)
     DebugVisualize.step()
 end
@@ -79,14 +81,18 @@ function Simulation:onRootPartChanged()
 end
 
 function Simulation:resetSimulation()
-    if (self.currentState) then
-        self.currentState:stateLeave()
+    if (self.simUpdateConn :: RBXScriptConnection) then
+        self.simUpdateConn:Disconnect()
     end
+    -- if (self.currentState) then
+    --     self.currentState:stateLeave()
+    -- end
     -- TODO: add a state:destroy() function to each state, which is called here
     -- all state controlled instances will be reacted with .new() instead of :stateEnter()
     -- any forces that are required for the state are enabled with state:stateEnter(), and disabled with state:stateLeave()
-    if (self.states) then
-        for name, _ in pairs(self.states) do
+    if (self.states :: {[string]: BaseState.BaseStateType}) then
+        for name: string, _ in pairs(self.states) do
+            self.states[name]:destroy()
             self.states[name] = nil
         end
     end
@@ -99,9 +105,6 @@ function Simulation:resetSimulation()
     self.currentState = self.states.Ground
     self.currentState:stateEnter()
 
-    if (self.simUpdateConn :: RBXScriptConnection) then
-        self.simUpdateConn:Disconnect()
-    end
     self.simUpdateConn = RunService.PreSimulation:Connect(function(dt)
         self:update(dt)
     end)
@@ -125,6 +128,7 @@ end
 function Simulation:onCharAdded(character: Model)
     self.character = character
 
+    print(Players.LocalPlayer.ReplicationFocus)
     if (not character.PrimaryPart) then
         error("A")
     end

@@ -31,7 +31,9 @@
     },
     "Workspace": {
       "$properties": {
-        "StreamingEnabled": false
+        "StreamingEnabled": true,
+        "SignalBehavior": "Deferred",
+        "RejectCharacterDeletions": "Enabled"
       }
     },
     "Lighting": {

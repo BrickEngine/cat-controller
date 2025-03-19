@@ -111,4 +111,137 @@ function PhysUtil.subStepForceVec3(vel: Vector3, pos: Vector3, targetPos: Vector
     return stepForce, stepVel, stepPos
 end
 
+-- function PhysUtil.oldColliderCast(
+-- 	rootPos: Vector3,
+-- 	radius: number,
+-- 	hipHeight: number,
+-- 	maxIncline: number,
+-- 	gndClearDist: number,
+-- 	rayParams: RaycastParams,
+-- 	buoySensor: BuoyancySensor?,
+-- 	calcWaterParts: boolean?
+-- )
+-- 	local _grounded = false
+-- 	local _inWater = false
+-- 	local _gndHeight = -math.huge
+-- 	local _ceilHeight = math.huge
+--     local _normal = VEC3_UP
+--     local _normalAngle = 0
+
+-- 	local gndRayArr = {}
+-- 	local adjHipHeight = hipHeight + RAY_Y_OFFSET
+
+-- 	-- terrain water check, use BuoyancySensor if availible
+-- 	if (buoySensor) then
+-- 		_inWater = buoySensor.FullySubmerged or buoySensor.TouchingSurface
+-- 	else
+-- 		local waterDetRegion = Region3.new(
+-- 			rootPos + VEC3_REGION_OFFSET - VEC3_REGION_SIZE,
+-- 			rootPos + VEC3_REGION_OFFSET + VEC3_REGION_SIZE
+-- 		)
+-- 		local regionData = Workspace.Terrain:ReadVoxels(waterDetRegion, 4)
+-- 		for i, d1 in ipairs(regionData) do
+-- 			for _, d2 in pairs(d1) do
+-- 				for _, d3 in pairs(d2) do
+-- 					if (d3 == Enum.Material.Water) then
+-- 						_inWater = true; break
+-- 					end
+-- 				end
+-- 			end
+-- 		end
+-- 	end
+
+-- 	-- parts with assigned Water coll group, aka. "custom water"
+-- 	if (calcWaterParts) then
+-- 		local partsArr = Workspace:GetPartBoundsInRadius(
+-- 			rootPos + VEC3_REGION_OFFSET, 2, WATER_OVERLAPPARAMS
+-- 		)
+-- 		if (#partsArr > 0) then
+-- 			_inWater = true
+-- 		end
+-- 	end
+
+-- 	-- cylinder cast checks
+-- 	for i=1, NUM_RAYS, 1 do
+-- 		local r = radiusDist(i, NUM_RAYS, BOUND_POINTS) * (radius - RADIUS_OFFSET)
+-- 		local theta = i * 360 * PHI
+-- 		local offsetX = r * math.cos(theta)
+-- 		local offsetZ = r * math.sin(theta)
+-- 		local ray = Workspace:Raycast(
+-- 			Vector3.new(
+-- 				rootPos.X + offsetX,
+-- 				rootPos.Y + RAY_Y_OFFSET,
+-- 				rootPos.Z + offsetZ
+-- 			),
+-- 			-VEC3_UP * 100,
+-- 			rayParams
+-- 		)
+-- 		if (ray) then
+-- 			local onSlope = ray.Normal:Cross(Vector3.yAxis) ~= VEC3_ZERO
+-- 			local rayGndPos = ray.Position.Y
+-- 			table.insert(gndRayArr, ray)
+
+--             _normalAngle = math.deg(math.acos(ray.Normal:Dot(Vector3.yAxis)))
+
+-- 			if (rayGndPos >= _gndHeight and ray.Distance <= adjHipHeight + gndClearDist) then
+-- 				if (onSlope) then
+-- 					if (_normalAngle <= maxIncline) then
+--                         _normal = ray.Normal
+-- 						_gndHeight = rayGndPos
+-- 						_grounded = true
+-- 					end
+-- 				else
+-- 					_gndHeight = rayGndPos
+-- 					_grounded = true
+-- 				end
+-- 			end
+
+-- 			-- check for ceiling hits
+-- 			local ceilRay = Workspace:Raycast(
+-- 				ray.Position + VEC3_UP*(hipHeight - RAY_Y_OFFSET),
+-- 				VEC3_UP * 100,
+-- 				rayParams
+-- 			)
+-- 			if (ceilRay) then
+-- 				if (ceilRay.Position.Y < _ceilHeight) then
+-- 					_ceilHeight = ceilRay.Position.Y
+-- 				end
+-- 			end
+
+-- 			-- DEBUG
+-- 			if (DebugVisualize.enabled) then
+-- 				local gndRayColor
+-- 				local ceilRayColor
+-- 				if (
+-- 					rayGndPos >= _gndHeight
+-- 					and ray.Distance <= adjHipHeight + gndClearDist
+-- 					and _normalAngle <= maxIncline
+-- 				) then
+-- 					gndRayColor = Color3.new(0, 255, 0)
+-- 				else
+-- 					gndRayColor = Color3.new(255, 0, 0)
+-- 				end
+-- 				if ((_ceilHeight - _gndHeight) < 3) then
+-- 					ceilRayColor = Color3.new(255, 0, 0)
+-- 				else
+-- 					ceilRayColor = Color3.new(0, 255, 0)
+-- 				end
+-- 				DebugVisualize.point(ray.Position, gndRayColor)
+-- 				if (ceilRay) then
+-- 					DebugVisualize.point(ceilRay.Position, ceilRayColor)
+-- 				end
+-- 			end
+-- 		end
+-- 	end
+
+-- 	return {
+--         grounded = _grounded,
+--         inWater = _inWater,
+--         gndHeight = _gndHeight,
+-- 		ceilHeight = _ceilHeight,
+--         normal = _normal,
+--         normalAngle = _normalAngle,
+--     } :: physData
+-- end
+
 return PhysUtil

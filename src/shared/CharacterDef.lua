@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local CollisionGroups = require(ReplicatedStorage.Shared.CollisionGroups)
 
@@ -19,13 +20,14 @@ local PARAMS = {
     ROOT_ATT_NAME = "Root",
     PHYS_TAG_NAME = "PhysAssemblyPart",
     ROOTPART_SIZE = Vector3.new(0, 0, 0),
-    MAINCOLL_SIZE = Vector3.new(1, 2, 2),
+    MAINCOLL_SIZE = Vector3.new(2, 2, 2),
     LEGCOLL_SIZE = Vector3.new(2, 2, 2),
     ROOTPART_SHAPE = Enum.PartType.Block,
     MAINCOLL_SHAPE = Enum.PartType.Cylinder,
+    LEGCOLL_SHAPE = Enum.PartType.Cylinder,
     ROOTPART_CF = CFrame.identity,
     MAINCOLL_CF = CFrame.new(
-        0, 0.5, 0,
+        0, 1, 0,
         0, -1, 0,
         1, 0, 0,
         0, 0, 1
@@ -43,7 +45,7 @@ local PARAMS = {
         0, 0, -1
     ),
     PHYS_PROPERTIES = PhysicalProperties.new(
-        50, 0, 0, 100, 100
+        2, 0, 0, 100, 100
     )
 }
 
@@ -91,7 +93,7 @@ local function createCharacter(playerModel: Model?): Model
     local character = Instance.new("Model")
     local rootPart = createPart("RootPart", PARAMS.ROOTPART_SIZE, PARAMS.ROOTPART_CF, PARAMS.ROOTPART_SHAPE)
     local mainColl = createPart("MainColl", PARAMS.MAINCOLL_SIZE, PARAMS.MAINCOLL_CF, PARAMS.MAINCOLL_SHAPE)
-    local legColl = createPart("LegColl", PARAMS.LEGCOLL_SIZE, PARAMS.LEGCOLL_CF, PARAMS.MAINCOLL_SHAPE)
+    local legColl = createPart("LegColl", PARAMS.LEGCOLL_SIZE, PARAMS.LEGCOLL_CF, PARAMS.LEGCOLL_SHAPE)
 
     rootPart.Parent, mainColl.Parent, legColl.Parent = character, character, character
     rootPart.CanCollide, rootPart.CanQuery, rootPart.CanTouch = false, false, false
@@ -145,7 +147,12 @@ local function createCharacter(playerModel: Model?): Model
         plrMdlClone.PrimaryPart = originalPP
         plrMdlClone.PrimaryPart.CFrame = rootPart.CFrame * PARAMS.PLAYERMODEL_OFFSET_CF
         createParentedWeld(rootPart, plrMdlClone.PrimaryPart)
+
         plrMdlClone.Parent = character
+    end
+
+    if (Workspace.StreamingEnabled) then
+        character.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
     end
 
     return character

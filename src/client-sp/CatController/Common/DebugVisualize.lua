@@ -27,7 +27,7 @@ function DebugVisualize.point(position, color)
 		instance.ZIndex = 1
 		instance.Name = "Debug Handle"
 		instance.AlwaysOnTop = true
-		instance.Radius = 0.12
+		instance.Radius = 0.04
 		instance.Adornee = Terrain
 		instance.Parent = Terrain
 	end

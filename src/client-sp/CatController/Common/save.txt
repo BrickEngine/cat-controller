@@ -4,6 +4,7 @@ local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CollisionGroups = require(ReplicatedStorage.Shared.CollisionGroups)
+local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
 
 local DebugVisualize = require(script.Parent.DebugVisualize)
 
@@ -17,6 +18,7 @@ local VEC3_UP = Vector3.new(0, 1 ,0)
 local VEC3_REGION_SIZE = Vector3.new(4, 4, 4)
 local VEC3_REGION_OFFSET = Vector3.new(0, 1 ,0)
 local BOUND_POINTS = math.round(2 * math.sqrt(NUM_RAYS))
+local COLL_SIZE_Y = CharacterDef.PARAMS.MAINCOLL_SIZE.X
 local WATER_OVERLAPPARAMS = OverlapParams.new()
 
 do
@@ -48,9 +50,17 @@ local Phys = {}
 export type physData = {
 	grounded: boolean,
 	inWater: boolean,
+	hitCeiling: boolean,
 	gndHeight: number,
+	ceilHeight: number,
 	avgNormal: Vector3,
 	avgNormalAngle: number,
+}
+
+type rayData = {
+	height: number,
+	normAng: number,
+	pOffset: number
 }
 
 function Phys.colliderCast(
@@ -123,12 +133,11 @@ function Phys.colliderCast(
 			-VEC3_UP * 100,
 			rayParams
 		)
-		if (ray :: RaycastResult) then
+		if (ray) then
+			local ray = ray :: RaycastResult
 			local debug_hit = false
 			local onSlope = ray.Normal:Cross(Vector3.yAxis) ~= VEC3_ZERO
 			local normAng = math.deg(math.acos(ray.Normal:Dot(Vector3.yAxis)))
-
-			_avgNormal += ray.Normal
 
 			if (ray.Distance <= adjHipHeight + gndClearDist) then
 				if (onSlope and normAng <= maxIncline) then
@@ -139,6 +148,22 @@ function Phys.colliderCast(
 				_gndHeight += ray.Position.Y
 				numHitRays += 1
 				debug_hit = true
+			end
+
+			-- check for ceiling hits
+			local ceilRay = Workspace:Raycast(
+				Vector3.new(
+					rootPos.X + offsetX + 0.1,
+					rootPos.Y + COLL_SIZE_Y - RAY_Y_OFFSET,
+					rootPos.Z + offsetZ + 0.1
+				),
+				VEC3_UP * 100,
+				rayParams
+			)
+			if (ceilRay) then
+				if (ceilRay.Position.Y < _ceilHeight) then
+					_ceilHeight = ceilRay.Position.Y
+				end
 			end
 
 			-- DEBUG
@@ -156,6 +181,9 @@ function Phys.colliderCast(
 					ceilRayColor = Color3.new(0, 255, 0)
 				end
 				DebugVisualize.point(ray.Position, gndRayColor)
+				if (ceilRay) then
+					DebugVisualize.point(ceilRay.Position, ceilRayColor)
+				end
 			end
 		end
 	end
@@ -172,7 +200,9 @@ function Phys.colliderCast(
 	return {
         grounded = _grounded,
         inWater = _inWater,
+		hitCeiling = _hitCeiling,
         gndHeight = _gndHeight,
+		ceilHeight = _ceilHeight,
         avgNormal = _avgNormal,
         avgNormalAngle = _avgNormalAngle,
     } :: physData
