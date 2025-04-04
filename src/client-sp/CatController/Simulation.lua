@@ -6,6 +6,7 @@ local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
+local Animation = require(script.Parent.Animation)
 local DebugVisualize = require(script.Parent.Common.DebugVisualize)
 
 local simStates = script.Parent.SimStates
@@ -29,6 +30,7 @@ function Simulation.new()
     self.currentState = nil
     self.currentStateId = nil
     self.simUpdateConn = nil
+    self.animation = nil
 
     self.character = Players.LocalPlayer.Character
 
@@ -84,12 +86,13 @@ function Simulation:resetSimulation()
     if (self.simUpdateConn :: RBXScriptConnection) then
         self.simUpdateConn:Disconnect()
     end
+    if (self.animation) then
+        self.animation:destroy()
+    end
+    self.animation = Animation.new(self)
     -- if (self.currentState) then
     --     self.currentState:stateLeave()
     -- end
-    -- TODO: add a state:destroy() function to each state, which is called here
-    -- all state controlled instances will be reacted with .new() instead of :stateEnter()
-    -- any forces that are required for the state are enabled with state:stateEnter(), and disabled with state:stateLeave()
     if (self.states :: {[string]: BaseState.BaseStateType}) then
         for name: string, _ in pairs(self.states) do
             self.states[name]:destroy()
@@ -127,11 +130,6 @@ end
 
 function Simulation:onCharAdded(character: Model)
     self.character = character
-
-    print(Players.LocalPlayer.ReplicationFocus)
-    if (not character.PrimaryPart) then
-        error("A")
-    end
 
     self:resetSimulation()
 

@@ -1,10 +1,7 @@
 --!strict
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
-local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local controller = script.Parent.Parent
@@ -19,11 +16,11 @@ local GND_RUN_SPEED = 2
 local GND_CLEAR = 0.5
 local MAX_INCLINE = 60 -- deg
 local JUMP_HEIGHT = 6 -- studs
-local JUMP_TIME = 0.15
-local MIN_STEP_HEIGHT = 0.1
+local JUMP_TIME = 0.4
 local PHYS_DT = 0.05
 local MOVE_DAMP = 5
-local LERP_DELTA = 0.9
+local HUGE_TORQUE = 2000000000
+local LERP_DELTA = 0.5
 
 local PHYS_RADIUS = CharacterDef.PARAMS.LEGCOLL_SIZE.X * 0.5
 local HIP_HEIGHT = CharacterDef.PARAMS.LEGCOLL_SIZE.X -- due to rotation X instead of Y
@@ -31,6 +28,7 @@ local COLL_HEIGHT = CharacterDef.PARAMS.MAINCOLL_SIZE.X -- due to rotation X ins
 local COLL_CF = CharacterDef.PARAMS.MAINCOLL_CF
 
 local VEC3_ZERO = Vector3.zero
+local VEC3_UP = Vector3.new(0, 1, 0)
 local PI2 = math.pi*2
 
 local ray_params = RaycastParams.new()
@@ -39,40 +37,43 @@ ray_params.FilterType = Enum.RaycastFilterType.Exclude
 ray_params.IgnoreWater = true
 ray_params.RespectCanCollide = true
 
-local collCheckPart: Part = Instance.new("Part")
-collCheckPart.Shape = CharacterDef.PARAMS.MAINCOLL_SHAPE
-collCheckPart.Size = CharacterDef.PARAMS.MAINCOLL_SIZE
-collCheckPart.CanCollide = false; collCheckPart.Anchored = true
-collCheckPart.Transparency = 0.1
-collCheckPart.Parent = Workspace
-
-local collCheckParams = OverlapParams.new()
-collCheckParams.RespectCanCollide = true
-collCheckParams.FilterType = Enum.RaycastFilterType.Exclude
-collCheckParams.FilterDescendantsInstances = {}
-
 local jTime = 0
 local jSignal = false
-local inJump = false
 
-local function angleAbs(angle: number): number
-	while angle < 0 do
-		angle += PI2
-	end
-	while angle > PI2 do
-		angle  -= PI2
-	end
-	return angle
-end
+local function createForces(mdl: Model): {[string]: Instance}
+    local att = Instance.new("Attachment")
+    att.Name = "Ground"
+    att.Parent = mdl.PrimaryPart
 
-local function angleShortest(a0: number, a1: number): number
-	local d1 = angleAbs(a1 - a0)
-	local d2 = -angleAbs(a0 - a1)
-	return math.abs(d1) > math.abs(d2) and d2 or d1
-end
+    local moveForce = Instance.new("VectorForce")
+    moveForce.Attachment0 = att
+    moveForce.RelativeTo = Enum.ActuatorRelativeTo.World
+    moveForce.Parent = mdl.PrimaryPart
 
-local function lerpAngle(a0: number, a1: number, alpha: number): number
-	return a0 + angleShortest(a0, a1)*alpha
+    local rotForce = Instance.new("AlignOrientation")
+    rotForce.Mode = Enum.OrientationAlignmentMode.OneAttachment
+    rotForce.Attachment0 = att
+    rotForce.AlignType = Enum.AlignType.AllAxes
+    rotForce.Responsiveness = 200
+    rotForce.MaxTorque = HUGE_TORQUE
+    rotForce.MaxAngularVelocity = math.huge
+    rotForce.Parent = mdl.PrimaryPart
+
+    local posForce = Instance.new("AlignPosition")
+    posForce.Attachment0 = att
+    posForce.Mode = Enum.PositionAlignmentMode.OneAttachment
+    posForce.ForceLimitMode = Enum.ForceLimitMode.PerAxis
+    posForce.MaxAxesForce = Vector3.zero
+    posForce.MaxVelocity = 200
+    posForce.Responsiveness = 180
+    posForce.Position = mdl.PrimaryPart.CFrame.Position
+    posForce.Parent = mdl.PrimaryPart
+
+    return {
+        moveForce = moveForce,
+        rotForce = rotForce,
+        posForce = posForce
+    }
 end
 
 local function getCFrameRelMoveVec(camCFrame: CFrame): Vector3
@@ -86,11 +87,10 @@ end
 
 local function makeCFrame(up, look)
 	local upu = up.Unit
-	local looku = (Vector3.new() - look).Unit
-	local rightu = upu:Cross(looku).Unit
+	local ru = upu:Cross((-look).Unit).Unit
 	-- orthonormalize, keeping up vector
-	looku = -upu:Cross(rightu).Unit
-	return CFrame.new(0, 0, 0, rightu.x, upu.x, looku.x, rightu.y, upu.y, looku.y, rightu.z, upu.z, looku.z)
+	local looku = -upu:Cross(ru).Unit
+	return CFrame.new(0, 0, 0, ru.x, upu.x, looku.x, ru.y, upu.y, looku.y, ru.z, upu.z, looku.z)
 end
 
 local function calcWalkAccel(moveVec: Vector3, rootPos: Vector3, currVel: Vector3, dt: number): Vector3
@@ -134,38 +134,24 @@ function substepAccel(vel: number, pos: number, targetPos: number, downForce: nu
     return stepAccel, stepVel, stepPos
 end
 
-local function createForces(mdl: Model): {[string]: Instance}
-    local att = Instance.new("Attachment")
-    att.Name = "Ground"
-    att.Parent = mdl.PrimaryPart
+local function angleAbs(angle: number): number
+	while angle < 0 do
+		angle += PI2
+	end
+	while angle > PI2 do
+		angle  -= PI2
+	end
+	return angle
+end
 
-    local moveForce = Instance.new("VectorForce")
-    moveForce.Attachment0 = att
-    moveForce.RelativeTo = Enum.ActuatorRelativeTo.World
-    moveForce.Parent = mdl.PrimaryPart
+local function angleShortest(a0: number, a1: number): number
+	local d1 = angleAbs(a1 - a0)
+	local d2 = -angleAbs(a0 - a1)
+	return math.abs(d1) > math.abs(d2) and d2 or d1
+end
 
-    local rotForce = Instance.new("AlignOrientation")
-    rotForce.Mode = Enum.OrientationAlignmentMode.OneAttachment
-    --rotForce.AlignType = Enum.AlignType.PrimaryAxisPerpendicular
-    rotForce.RigidityEnabled = true
-    rotForce.ReactionTorqueEnabled, rotForce.RigidityEnabled = true, true
-    rotForce.Parent = mdl.PrimaryPart
-
-    local posForce = Instance.new("AlignPosition")
-    posForce.Attachment0 = att
-    posForce.Mode = Enum.PositionAlignmentMode.OneAttachment
-    posForce.ForceLimitMode = Enum.ForceLimitMode.PerAxis
-    posForce.MaxAxesForce = Vector3.zero
-    posForce.MaxVelocity = 200
-    posForce.Responsiveness = 180--120
-    posForce.Position = mdl.PrimaryPart.CFrame.Position
-    posForce.Parent = mdl.PrimaryPart
-
-    return {
-        moveForce = moveForce,
-        rotForce = rotForce,
-        posForce = posForce
-    }
+local function lerpAngle(a0: number, a1: number, t: number): number
+	return a0 + angleShortest(a0, a1)*t
 end
 
 -- dt = elapsed time
@@ -195,21 +181,6 @@ local function decrementCounter(count: number, dt: number): number
     return count
 end
 
-local function preMoveStep(pos: Vector3, stepDiff: number, collParams: OverlapParams)
-    collCheckPart.CFrame = CFrame.new(pos + Vector3.new(0, COLL_HEIGHT*0.5, 0)) * CFrame.Angles(math.rad(90), math.rad(90), 0)
-    --print(collCheckPart.CFrame.Position)
-
-    if (stepDiff >= MIN_STEP_HEIGHT) then
-        local partArr: {[number]: Instance} = Workspace:GetPartsInPart(collCheckPart, collParams)
-        print(partArr)
-        if (#partArr > 0) then
-            return false
-        end
-    end
-
-    return true
-end
-
 ---------------------------------------------------------------------------------------
 
 local Ground = setmetatable({}, BaseState)
@@ -221,6 +192,8 @@ function Ground.new(...)
     self.character = self._simulation.character :: Model
     self.forces = createForces(self.character)
 
+    self.animation = self._simulation.animation
+
     return self
 end
 
@@ -228,18 +201,14 @@ function Ground:stateEnter()
     if (self.forces) then
         warn("forces already exist")
     end
+
+    self.animation:setState(self.animation.states.Idle)
+    self.animation.animationState.adjustSpeed(1)
     -- self.forces = {
     --     moveForce = createVecForce(self.character),
     --     rotForce = createAliOri(self.character),
     --     posForce = createAliPos(self.character)
     -- }
-    local tbl = {}
-    for _, v: Instance in pairs(self.character:GetChildren()) do
-        if v:IsA("BasePart") then
-            table.insert(tbl, v)
-        end
-    end
-    collCheckParams.FilterDescendantsInstances = tbl
 end
 
 function Ground:stateLeave()
@@ -247,8 +216,8 @@ function Ground:stateLeave()
         return
     end
 
-    for _, force: Instance in self.forces do
-        force.Enabled = false
+    for _, f: Instance in self.forces do
+        f.Enabled = false
     end
 
     -- for _, v: Instance in pairs(self.forces) do
@@ -274,33 +243,39 @@ function Ground:update(dt: number)
         self._simulation:transitionState(self._simulation.states.Water)
     end
 
-    if (currVel.Y < 0) then
-        inJump = false
-    end
-
     local moveDirVec = getCFrameRelMoveVec(camCFrame)
+    local currHoriVel = Vector3.new(currVel.X, 0, currVel.Z)
     local accelVec = calcWalkAccel(
-        moveDirVec, currPos, Vector3.new(currVel.X, 0, currVel.Z), PHYS_DT
+        moveDirVec, currPos, currHoriVel, PHYS_DT
     )
 
     -- primaryPart rotation based on vecForce direction
-    if (currVel.Magnitude > 0.05) then
-        local currAng = math.atan2(primaryPart.CFrame.LookVector.Z, primaryPart.CFrame.LookVector.X)
-        local targetAng = math.atan2(currVel.Z, currVel.X)
+    local lookVec = primaryPart.CFrame.LookVector
+    if (currHoriVel.Magnitude > 0.1) then
+        local currAng = math.atan2(lookVec.Z, lookVec.X)
+        local targetAng = math.atan2(currVel.Z, currVel.X) -- currvel
+        --targetAng = lerpAngle(currAng, targetAng, LERP_DELTA * currVel.Magnitude)
+
         if (math.abs(angleShortest(currAng, targetAng)) > math.pi*0.95) then
-            targetAng = lerpAngle(currAng, targetAng, LERP_DELTA)
+            targetAng = lerpAngle(currAng, targetAng, 0.95)
         end
         -- primaryPart.CFrame = CFrame.lookAlong(
         --     primaryPart.CFrame.Position, Vector3.new(math.cos(targetAng), 0, math.sin(targetAng))
         -- )
         --self.forces.rotForce.CFrame = makeCFrame(Vector3.new(0, 1, 0), Vector3.new(math.cos(targetAng), 0, math.sin(targetAng)))
+        self.forces.rotForce.CFrame = makeCFrame(
+            VEC3_UP, Vector3.new(math.cos(targetAng), 0, math.sin(targetAng))
+        )
     end
 
     if (physData.grounded) then
 
+        self.animation:setState(self.animation.states.Walk)
+        self.animation.animationState:adjustSpeed(currHoriVel.Magnitude*0.1)
+
         local targetPosY = physData.gndHeight + HIP_HEIGHT
 
-        if (jTime <= 0 or not inJump) then
+        if (jTime <= 0) then
             self.forces.posForce.Enabled = true
         end
 
@@ -312,23 +287,18 @@ function Ground:update(dt: number)
                 SoundService:PlayLocalSound(s)
                 s:Destroy()
             end
-            local jumpInitVel: number = math.sqrt(Workspace.Gravity * 2 * JUMP_HEIGHT)
-            --primaryPart.AssemblyLinearVelocity = Vector3.new(currVel.X, jumpInitVel, currVel.Z)
-            primaryPart.AssemblyLinearVelocity = Vector3.new(currVel.X, 0, currVel.Z)
-            primaryPart:ApplyImpulse(Vector3.new(0, jumpInitVel, 0)*mass)
-            inJump = true; jTime = JUMP_TIME
-            self.forces.posForce.Enabled = false
-        end
 
-        if (jTime <= 0 or not inJump) then
-            self.forces.posForce.Enabled = true
+            local jumpInitVel: number = math.sqrt(Workspace.Gravity * 2 * JUMP_HEIGHT)
+            primaryPart:ApplyImpulse(Vector3.new(0, jumpInitVel-currVel.Y, 0)*mass)
+            jTime = JUMP_TIME
+            self.forces.posForce.Enabled = false
         end
 
         local accelUp = substepAccel(currVel.Y, currPos.Y, physData.gndHeight + HIP_HEIGHT, workspace.Gravity, 3, PHYS_DT)
 
         self.forces.posForce.Position = Vector3.new(0, targetPosY, 0)
-        self.forces.posForce.MaxAxesForce = Vector3.new(0, (Workspace.Gravity + math.abs(accelUp)*2)*mass, 0)
-        self.forces.moveForce.Force = accelVec*mass*1.8 --(Vector3.new(0, accelUp, 0) + accelVec)*mass*1.8
+        self.forces.posForce.MaxAxesForce = Vector3.new(0, (Workspace.Gravity + math.abs(accelUp)*3)*mass, 0)
+        self.forces.moveForce.Force = accelVec*mass --(Vector3.new(0, accelUp, 0) + accelVec)*mass*1.8
     else
         self.forces.moveForce.Force = accelVec*mass*0.1
         self.forces.posForce.Enabled = false

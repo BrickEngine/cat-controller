@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -9,7 +10,7 @@ local DEBUG_DISABLE_CHAR = false
 local DEBUG_COLL_COLOR3 = Color3.fromRGB(0, 0, 255)
 
 local ADD_BUOYANCY_SENSOR = true
-local CREATE_BASE_FORCES = true
+local CREATE_BASE_FORCES = false
 local USE_PLAYERMDL_MASS = false
 local MAIN_ROOT_PRIO = 100
 
