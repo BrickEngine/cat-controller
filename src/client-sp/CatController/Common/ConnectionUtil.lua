@@ -54,7 +54,7 @@ end
 
 function ConnectionUtil:disconnectAll()
 	for _, disconnectFunc in pairs(self._connections) do
-		disconnectFunc()
+		(disconnectFunc :: any)()
 	end
 	self._connections = {}
 end

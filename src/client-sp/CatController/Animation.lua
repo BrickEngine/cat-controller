@@ -1,87 +1,87 @@
-local AnimClipProviderService = game:GetService("AnimationClipProvider")
+-- Main animation module. Instantiates all character dependent animation tracks
 
-local ANIMS = {
-	-- ground | idle
-    Idle = "rbxassetid://76728544462648",
-    Crouch = "rbxassetid://91356839033018",
-	-- ground | movement
-    Sneak = "rbxassetid://82906371497519",
-    Walk = "rbxassetid://79536250580622",
-    Trot = "rbxassetid://81560499422968",
-    Run = "rbxassetid://90228280985497",
-	-- ground | actions
-    Sit = "rbxassetid://86378703965993",
-	-- water
-	--SWIM = "",
-	-- air
-	--FALL = ""
-}
-
-local function createDefaultState(animTrack: any)
-	return {
-		enter = function(self, ...)
-			animTrack:Play(...)
-		end,
-		leave = function(self, fdt: number?)
-			animTrack:Stop(fdt)
-		end,
-		adjustSpeed = function(self, speed: number)
-			animTrack:AdjustSpeed(speed)
-		end,
-		adjustWeight = function(self, weight: number)
-			animTrack:AdjustWeight(weight)
-		end
-	}
+local function resetTrackVals(track: AnimationTrack)
+	track:AdjustSpeed(1)
+	track:AdjustWeight(1)
 end
 
 local Animation = {}
 Animation.__index = Animation
 
+Animation.states = {
+	-- idle (0)
+	Idle = {id = "rbxassetid://76728544462648", prio = 0},
+	Crouch = {id = "rbxassetid://91356839033018", prio = 0},
+	-- movement (1)
+    Sneak = {id = "rbxassetid://82906371497519", prio = 1},
+    Walk = {id = "rbxassetid://79536250580622", prio = 1},
+    Trot = {id = "rbxassetid://81560499422968", prio = 1},
+    Run = {id = "rbxassetid://90228280985497", prio = 1},
+	--SWIM = "",
+	--FALL = "",
+	-- actions (2-5)
+    Sit = {id = "rbxassetid://86378703965993", prio = 2},
+}
+
 export type AnimationStateType = {
-    typeof(Animation.State)
+    id: string,
+	prio: number
 }
 
 function Animation.new(simulation)
     local self = setmetatable({}, Animation)
 
-    self.animationState = self.states.None :: AnimationStateType
-	self.animationController = Instance.new("AnimationController", simulation.character)
-	self.animator = Instance.new("Animator", self.animationController)
+	self.character = simulation.character :: Model
+	self.animationController = self.character:FindFirstChildOfClass("AnimationController")
+	self.animator = self.animationController:FindFirstChildOfClass("Animator")
 
+	self.currentState = "Idle"
 	self.animTracks = {} :: {[string]: AnimationTrack}
-	for animName: string, animId: string in pairs(ANIMS) do
+
+	for animName: string, animData: AnimationStateType in pairs(self.states) do
 		local animInst = Instance.new("Animation", self.animator)
-		animInst.AnimationId = animId; animInst.Name = animName
+		animInst.AnimationId = animData.id
+		animInst.Name = animName
 
 		self.animTracks[animName] = self.animator:LoadAnimation(animInst) :: AnimationTrack
-		self.states[animName] = createDefaultState(self.animTracks[animName])
+		self.animTracks[animName].Priority = animData.prio
+		self.animTracks[animName].Stopped:Connect(function()
+			--print(animName .. " WAS STOPPED")
+		end)
+		self.animTracks[animName].Ended:Connect(function()
+			--print(animName .. " HAS ENDEDEDED")
+		end)
 	end
 
 	return self
 end
 
-Animation.states = {
-	None = {
-		enter = function() end,
-		leave = function() end,
-		adjustSpeed = function() end,
-		adjustWeight = function() end
-	}
-	-- specific states added after Animation object is constructed
-}
+function Animation:setState(newState: string, f_dt: number?)
+	if (not newState) then
+		error("missing newState parameter")
+	end
 
-function Animation:setState(newState: AnimationStateType)
-	assert(newState, "specify newState")
-
-	if (newState == self.animationState) then
+	if (newState == self.currentState) then
 		return
 	end
-	self.animationState:leave()
-	self.animationState = newState
-	self.animationState:enter()
+	self.animTracks[self.currentState]:Stop()
+	self.currentState = newState
+	self.animTracks[self.currentState]:Play(f_dt)
+end
+
+function Animation:adjustSpeed(speed: number)
+	if (speed == self.animTracks[self.currentState].Speed) then
+		return
+	end
+	self.animTracks[self.currentState]:AdjustSpeed(speed)
 end
 
 function Animation:destroy()
+	for i, animTrack: AnimationTrack in pairs(self.animTracks) do
+		animTrack:Destroy()
+		self.animTracks[i] = nil
+	end
+
 	setmetatable(self, nil)
 end
 

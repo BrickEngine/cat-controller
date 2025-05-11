@@ -1,7 +1,5 @@
---!strict
-
-local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
+local StarterPlayer = game:GetService("StarterPlayer")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -16,7 +14,7 @@ local Water = require(simStates.Water) :: BaseState.BaseStateType
 local Air = require(simStates.Air) :: BaseState.BaseStateType
 
 local ACTION_PRIO = 100
-local FUNCNAME_UPDATE = "SimRSUpdate"
+local SIM_UPDATE_FUNC = "SimRSUpdate"
 
 local primaryPartListener: RBXScriptConnection
 
@@ -77,7 +75,7 @@ end
 
 function Simulation:onRootPartChanged()
     if (not self.character.PrimaryPart) then
-        warn("something removed the PrimaryPart, halting simulation")
+        warn("missing PrimaryPart, halting simulation")
         self:onCharRemoving(Players.LocalPlayer.Character)
     end
 end
@@ -136,10 +134,20 @@ function Simulation:onCharAdded(character: Model)
     if (primaryPartListener) then
         primaryPartListener:Disconnect()
     end
-    primaryPartListener = character.PrimaryPart.Changed:Connect(function()
-        self:onRootPartChanged()
-    end)
+    if (self.character.PrimaryPart) then
+        primaryPartListener = self.character.PrimaryPart.Changed:Connect(function()
+            self:onRootPartChanged()
+        end)
+    else
+        error("character missing PrimaryPart", 2)
+    end
 
+    for _, s: Instance in pairs(StarterPlayer.StarterCharacterScripts:GetChildren()) do
+        if (s:IsA("Script") or s:IsA("LocalScript") or s:IsA("ModuleScript")) then
+            local sClone = s:Clone()
+            sClone.Parent = self.character
+        end
+    end
     -- RunService:BindToRenderStep(FUNCNAME_UPDATE, ACTION_PRIO, function(dt)
     --     self:update(dt)
     -- end)
@@ -148,14 +156,13 @@ function Simulation:onCharAdded(character: Model)
 end
 
 function Simulation:onCharRemoving(character: Model)
-    print("::: CHARACTER REMOVING :::")
     if (Players.LocalPlayer.Character) then
         warn("onCharRemoving called with existing character")
         Players.LocalPlayer.Character = nil
         return
     end
 
-    RunService:UnbindFromRenderStep(FUNCNAME_UPDATE)
+    RunService:UnbindFromRenderStep(SIM_UPDATE_FUNC)
 end
 
 -- task.spawn(function()

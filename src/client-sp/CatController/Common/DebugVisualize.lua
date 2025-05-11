@@ -1,5 +1,3 @@
--- thx for saving me some time Jovanni
-
 -- source / license:
 -- https://github.com/LPGhatguy/luanoid
 -- license: CC0, MIT

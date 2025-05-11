@@ -21,14 +21,14 @@ local PARAMS = {
     ROOT_ATT_NAME = "Root",
     PHYS_TAG_NAME = "PhysAssemblyPart",
     ROOTPART_SIZE = Vector3.new(0, 0, 0),
-    MAINCOLL_SIZE = Vector3.new(2, 2, 2),
+    MAINCOLL_SIZE = Vector3.new(1, 2, 2),
     LEGCOLL_SIZE = Vector3.new(2, 2, 2),
     ROOTPART_SHAPE = Enum.PartType.Block,
     MAINCOLL_SHAPE = Enum.PartType.Cylinder,
     LEGCOLL_SHAPE = Enum.PartType.Cylinder,
     ROOTPART_CF = CFrame.identity,
     MAINCOLL_CF = CFrame.new(
-        0, 1, 0,
+        0, 0.5, 0,
         0, -1, 0,
         1, 0, 0,
         0, 0, 1
@@ -40,10 +40,10 @@ local PARAMS = {
         0, 0, 1
     ),
     PLAYERMODEL_OFFSET_CF = CFrame.new(
-        0, 0.5, -0.8,
-        -1, 0, 0,
+        0, 0.5, 0,
+        1, 0, 0,
         0, 1, 0,
-        0, 0, -1
+        0, 0, 1
     ),
     PHYS_PROPERTIES = PhysicalProperties.new(
         2, 0, 0, 100, 100
@@ -135,22 +135,26 @@ local function createCharacter(playerModel: Model?): Model
         end
 
         local plrMdlClone = playerModel:Clone()
-        local originalPP = plrMdlClone.PrimaryPart
+        local plrMdlPrimPart = plrMdlClone.PrimaryPart
 
-        for _, inst: Instance in pairs(plrMdlClone:GetDescendants()) do
+        for _, inst: Instance in pairs(plrMdlClone:GetChildren()) do
             if (inst:IsA("BasePart")) then
                 inst.Parent = character
                 if (not USE_PLAYERMDL_MASS) then
                     (inst :: BasePart).Massless = true
                 end
             end
+            if (inst:IsA("Folder")) then
+                inst.Parent = character
+            end
         end
-        plrMdlClone.PrimaryPart = originalPP
-        plrMdlClone.PrimaryPart.CFrame = rootPart.CFrame * PARAMS.PLAYERMODEL_OFFSET_CF
-        createParentedWeld(rootPart, plrMdlClone.PrimaryPart)
-
-        plrMdlClone.Parent = character
+        plrMdlPrimPart.CFrame = rootPart.CFrame * PARAMS.PLAYERMODEL_OFFSET_CF
+        createParentedWeld(rootPart, plrMdlPrimPart)
+        plrMdlClone:Destroy()
     end
+
+    local animController = Instance.new("AnimationController", character)
+    Instance.new("Animator", animController)
 
     if (Workspace.StreamingEnabled) then
         character.ModelStreamingMode = Enum.ModelStreamingMode.Persistent

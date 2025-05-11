@@ -26,7 +26,7 @@ local BaseMoveInput = {}
 BaseMoveInput.__index = BaseMoveInput
 
 function BaseMoveInput.new()
-    local self = setmetatable({} :: any, BaseMoveInput) :: BaseInputType
+    local self = setmetatable({}, BaseMoveInput) :: BaseInputType
 
     self._connectionUtil = ConnectionUtil.new()
 

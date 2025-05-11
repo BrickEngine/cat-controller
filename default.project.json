@@ -29,6 +29,11 @@
         "$path": "src/client-sp"
       }
     },
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
+    },
     "Workspace": {
       "$properties": {
         "StreamingEnabled": true,
