@@ -34,10 +34,31 @@ local function removePlayerCharacter(plr: Player)
 	if (plr.Character) then plr.Character:Destroy() end
 end
 
+local function setPlrReplicationFocus(plr: Player)
+    if (not Players[plr.Name]) then
+        error("player does not exist", 2)
+    end
+
+    local repPart: BasePart
+
+    if (Workspace.Baseplate) then
+        repPart = Workspace.Baseplate
+    else
+        repPart = Instance.new("Part")
+        repPart.Anchored = true
+        repPart.CFrame = CFrame.identity
+        repPart.CanCollide, repPart.CanQuery, repPart.CanTouch = false, false, false
+        repPart.Transparency = 1
+        repPart.Parent = Workspace
+    end
+    plr.ReplicationFocus = repPart
+end
+
 local function spawnAndSetPlrChar(plr: Player)
     local playerModel = StarterPlayer:FindFirstChild("PlayerModel") -- TODO: proper PlayerModel selection
 
 	local newCharacter = CharacterDef.createCharacter(playerModel)
+
 	local SelectedSpawn = spawns[math.random(1, #spawns)]
     do
         newCharacter.Name = tostring(plr.UserId)
@@ -46,11 +67,17 @@ local function spawnAndSetPlrChar(plr: Player)
         newCharacter.PrimaryPart:SetNetworkOwner(plr)
         plr.Character = newCharacter
     end
+
+    if (Workspace.StreamingEnabled) then
+        plr.ReplicationFocus = plr.Character.PrimaryPart
+    end
+
 	return newCharacter
 end
 
 local function onPlayerAdded(plr: Player)
-    -- TODO
+    print(plr.Name .. " WAS ADDED")
+    setPlrReplicationFocus(plr)
 end
 
 local function onPlayerRemoving(plr: Player)
@@ -60,7 +87,7 @@ end
 local rEventFunctions = {
     [NetApiDef.clientEvents.requestSpawn] = function(plr: Player)
         if (plr.Character) then
-            warn(tostring(plr.Name).." attempted to spawn with active character")
+            warn(plr.Name.." attempted to spawn with active character")
             plr.Character = nil
         end
         spawnAndSetPlrChar(plr)

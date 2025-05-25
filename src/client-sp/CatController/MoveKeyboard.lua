@@ -15,7 +15,7 @@ local KEY_A = Enum.KeyCode.A
 local KEY_D = Enum.KeyCode.D
 local KEY_UP = Enum.KeyCode.Up
 local KEY_DOWN = Enum.KeyCode.Down
-local KEY_RUN = Enum.KeyCode.LeftControl
+local KEY_RUN = Enum.KeyCode.LeftShift
 local KEY_JUMP = Enum.KeyCode.Space
 
 local MoveKeyboard = setmetatable({}, BaseInput)

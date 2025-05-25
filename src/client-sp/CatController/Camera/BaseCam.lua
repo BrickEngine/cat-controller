@@ -180,13 +180,13 @@ function BaseCamera:getSubjectVelocity(): Vector3
 	end
 
 	if cameraSubject:IsA("BasePart") then
-		return cameraSubject.Velocity
+		return cameraSubject.AssemblyLinearVelocity
 
 	elseif cameraSubject:IsA("Model") then
 		local primaryPart = cameraSubject.PrimaryPart
 
 		if primaryPart then
-			return primaryPart.Velocity
+			return primaryPart.AssemblyLinearVelocity
 		end
 	end
 
@@ -202,13 +202,13 @@ function BaseCamera:getSubjectRotVelocity(): Vector3
 	end
 
 	if cameraSubject:IsA("BasePart") then
-		return cameraSubject.RotVelocity
+		return cameraSubject.AssemblyAngularVelocity
 
 	elseif cameraSubject:IsA("Model") then
 		local primaryPart = cameraSubject.PrimaryPart
 
 		if primaryPart then
-			return primaryPart.RotVelocity
+			return primaryPart.AssemblyAngularVelocity
 		end
 	end
 

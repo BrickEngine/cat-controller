@@ -25,4 +25,8 @@ function Water:update(dt: number)
     
 end
 
+function Water:destroy()
+
+end
+
 return Water

@@ -1,160 +1,88 @@
+-- Main animation module. Instantiates all character dependent animation tracks
+
+local function resetTrackVals(track: AnimationTrack)
+	track:AdjustSpeed(1)
+	track:AdjustWeight(1)
+end
+
 local Animation = {}
 Animation.__index = Animation
 
-local DEFAULT_ANIM_SPEED = 1
-local ANIMS = {
-	-- ground | idle
-    IDLE = "rbxassetid://76728544462648",
-    CROUCH = "rbxassetid://91356839033018",
-	-- ground | movement
-    SNEAK = "rbxassetid://82906371497519",
-    WALK = "rbxassetid://79536250580622",
-    TROT = "rbxassetid://81560499422968",
-    RUN = "rbxassetid://90228280985497",
-	-- ground | idle action
-    SIT = "rbxassetid://86378703965993",
-	-- water
-	SWIM = "",
-	-- air
-	FALL = ""
+Animation.states = {
+	-- idle (0)
+	Idle = {id = "rbxassetid://76728544462648", prio = 0},
+	Crouch = {id = "rbxassetid://91356839033018", prio = 0},
+	-- movement (1)
+    Sneak = {id = "rbxassetid://82906371497519", prio = 1},
+    Walk = {id = "rbxassetid://79536250580622", prio = 1},
+    Trot = {id = "rbxassetid://81560499422968", prio = 1},
+    Run = {id = "rbxassetid://90228280985497", prio = 1},
+	--SWIM = "",
+	--FALL = "",
+	-- actions (2-5)
+    Sit = {id = "rbxassetid://86378703965993", prio = 2},
 }
 
-local function animStateEnter(self, speed, prio)
-    
-end
-
-local function animStateLeave(self)
-    
-end
-
-Animation.State = {
-	None = {
-		enter = function() end,
-		leave = function() end
-	},
-	Idle = {
-		enter = function(self, speed)
-			self.animations.IDLE:Play()
-		end,
-		leave = function(self)
-			self.animations.IDLE:Stop()
-		end,
-        setSpeed = function(self, speed)
-            self.animations.IDLE:AdjustSpeed(speed)
-        end
-	},
-	Crouch = {
-		enter = function(self, speed)
-			self.animations.CROUCH:Play()
-		end,
-		leave = function(self)
-			self.animations.CROUCH:Stop()
-		end,
-        setSpeed = function(self, speed)
-            self.animations.CROUCH:AdjustSpeed(speed)
-        end
-	},
-	Walk = {
-		enter = function(self)
-			self.animations.WALK:Play()
-		end,
-		leave = function(self)
-			self.animations.WALK:Stop()
-		end,
-        setSpeed = function(self, speed)
-            self.animations.CROUCH:AdjustSpeed(speed)
-        end
-	},
-	-- Trot = {
-	-- 	enter = function(self)
-	-- 		self.animations.TROT:Play()
-	-- 	end,
-	-- 	leave = function(self)
-	-- 		self.animations.TROT:Stop()
-	-- 	end,
-    --     setSpeed = function(self, speed)
-    --         self.animations.CROUCH:AdjustSpeed(speed)
-    --     end
-	-- },
-	Run = {
-		enter = function(self)
-			self.animations.RUN:Play()
-		end,
-		leave = function(self)
-			self.animations.RUN:Stop()
-		end,
-        setSpeed = function(self, speed)
-            self.animations.CROUCH:AdjustSpeed(speed)
-        end
-	},
-    Sit = {
-		enter = function(self)
-			self.animations.SIT:Play()
-		end,
-		leave = function(self)
-			self.animations.SIT:Stop()
-		end
-	},
-    -- Swim = {
-	-- 	enter = function(self)
-	-- 		self.animations.SWIM:Play()
-	-- 	end,
-	-- 	leave = function(self)
-	-- 		self.animations.SWIM:Stop()
-	-- 	end
-	-- },
-    -- Fall = {
-	-- 	enter = function(self)
-	-- 		self.animations.FALL:Play()
-	-- 	end,
-	-- 	leave = function(self)
-	-- 		self.animations.FALL:Stop()
-	-- 	end
-	-- },
-}
-
-export type AnimationState = {
-    typeof(Animation.State)
+export type AnimationStateType = {
+    id: string,
+	prio: number
 }
 
 function Animation.new(simulation)
     local self = setmetatable({}, Animation)
 
-    self.simulation = simulation
-    self.character = simulation.character
-    self.animations = {} :: AnimationTrack
-    self.animationState = Animation.State.None
+	self.character = simulation.character :: Model
+	self.animationController = self.character:FindFirstChildOfClass("AnimationController")
+	self.animator = self.animationController:FindFirstChildOfClass("Animator")
 
-    local animController = Instance.new("AnimationController")
-    local animator = Instance.new("Animator")
-    animController.Parent = simulation.character
-    animator.Parent = animController
+	self.currentState = "Idle"
+	self.animTracks = {} :: {[string]: AnimationTrack}
 
-	self.animController = animController
-    self.animator = animator
+	for animName: string, animData: AnimationStateType in pairs(self.states) do
+		local animInst = Instance.new("Animation", self.animator)
+		animInst.AnimationId = animData.id
+		animInst.Name = animName
 
-	for anim, id in pairs(ANIMS) do
-		self.animations[anim] = self.animator:LoadAnimation(id)
+		self.animTracks[animName] = self.animator:LoadAnimation(animInst) :: AnimationTrack
+		self.animTracks[animName].Priority = animData.prio
+		self.animTracks[animName].Stopped:Connect(function()
+			--print(animName .. " WAS STOPPED")
+		end)
+		self.animTracks[animName].Ended:Connect(function()
+			--print(animName .. " HAS ENDEDEDED")
+		end)
 	end
 
 	return self
 end
 
-function Animation:setState(newState: AnimationState, speed: number, looped: boolean)
-	assert(newState, "specify newState")
+function Animation:setState(newState: string, f_dt: number?)
+	if (not newState) then
+		error("missing newState parameter")
+	end
 
-	if (newState == self.animationState) then
+	if (newState == self.currentState) then
 		return
 	end
-	self.animationState:leave()
-	self.animationState = newState
-	self.animationState:enter()
+	self.animTracks[self.currentState]:Stop()
+	self.currentState = newState
+	self.animTracks[self.currentState]:Play(f_dt)
 end
 
-function Animation:setSpeed(speed: number)
-    assert(speed >= 0, "speed must be a positive number")
+function Animation:adjustSpeed(speed: number)
+	if (speed == self.animTracks[self.currentState].Speed) then
+		return
+	end
+	self.animTracks[self.currentState]:AdjustSpeed(speed)
+end
 
-    self.animationState:AdjustSpeed(speed)
+function Animation:destroy()
+	for i, animTrack: AnimationTrack in pairs(self.animTracks) do
+		animTrack:Destroy()
+		self.animTracks[i] = nil
+	end
+
+	setmetatable(self, nil)
 end
 
 return Animation

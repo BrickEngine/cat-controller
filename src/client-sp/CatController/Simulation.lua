@@ -1,11 +1,10 @@
---!strict
-
-local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
+local StarterPlayer = game:GetService("StarterPlayer")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
+local Animation = require(script.Parent.Animation)
 local DebugVisualize = require(script.Parent.Common.DebugVisualize)
 
 local simStates = script.Parent.SimStates
@@ -15,7 +14,7 @@ local Water = require(simStates.Water) :: BaseState.BaseStateType
 local Air = require(simStates.Air) :: BaseState.BaseStateType
 
 local ACTION_PRIO = 100
-local FUNCNAME_UPDATE = "SimRSUpdate"
+local SIM_UPDATE_FUNC = "SimRSUpdate"
 
 local primaryPartListener: RBXScriptConnection
 
@@ -29,6 +28,7 @@ function Simulation.new()
     self.currentState = nil
     self.currentStateId = nil
     self.simUpdateConn = nil
+    self.animation = nil
 
     self.character = Players.LocalPlayer.Character
 
@@ -51,8 +51,10 @@ end
 -- should be bound to RunService.PreSimulation
 function Simulation:update(dt: number)
     if (not self.character.PrimaryPart) then
-        error("missing PrimaryPart of character, skipping simulation update"); return
+        warn("missing PrimaryPart of character, skipping simulation update")
+        self.simUpdateConn:Disconnect(); return
     end
+
     self.currentState:update(dt)
     DebugVisualize.step()
 end
@@ -73,20 +75,25 @@ end
 
 function Simulation:onRootPartChanged()
     if (not self.character.PrimaryPart) then
-        warn("something removed the PrimaryPart, halting simulation")
+        warn("missing PrimaryPart, halting simulation")
         self:onCharRemoving(Players.LocalPlayer.Character)
     end
 end
 
 function Simulation:resetSimulation()
-    if (self.currentState) then
-        self.currentState:stateLeave()
+    if (self.simUpdateConn :: RBXScriptConnection) then
+        self.simUpdateConn:Disconnect()
     end
-    -- TODO: add a state:destroy() function to each state, which is called here
-    -- all state controlled instances will be reacted with .new() instead of :stateEnter()
-    -- any forces that are required for the state are enabled with state:stateEnter(), and disabled with state:stateLeave()
-    if (self.states) then
-        for name, _ in pairs(self.states) do
+    if (self.animation) then
+        self.animation:destroy()
+    end
+    self.animation = Animation.new(self)
+    -- if (self.currentState) then
+    --     self.currentState:stateLeave()
+    -- end
+    if (self.states :: {[string]: BaseState.BaseStateType}) then
+        for name: string, _ in pairs(self.states) do
+            self.states[name]:destroy()
             self.states[name] = nil
         end
     end
@@ -99,9 +106,6 @@ function Simulation:resetSimulation()
     self.currentState = self.states.Ground
     self.currentState:stateEnter()
 
-    if (self.simUpdateConn :: RBXScriptConnection) then
-        self.simUpdateConn:Disconnect()
-    end
     self.simUpdateConn = RunService.PreSimulation:Connect(function(dt)
         self:update(dt)
     end)
@@ -125,19 +129,25 @@ end
 function Simulation:onCharAdded(character: Model)
     self.character = character
 
-    if (not character.PrimaryPart) then
-        error("A")
-    end
-
     self:resetSimulation()
 
     if (primaryPartListener) then
         primaryPartListener:Disconnect()
     end
-    primaryPartListener = character.PrimaryPart.Changed:Connect(function()
-        self:onRootPartChanged()
-    end)
+    if (self.character.PrimaryPart) then
+        primaryPartListener = self.character.PrimaryPart.Changed:Connect(function()
+            self:onRootPartChanged()
+        end)
+    else
+        error("character missing PrimaryPart", 2)
+    end
 
+    for _, s: Instance in pairs(StarterPlayer.StarterCharacterScripts:GetChildren()) do
+        if (s:IsA("Script") or s:IsA("LocalScript") or s:IsA("ModuleScript")) then
+            local sClone = s:Clone()
+            sClone.Parent = self.character
+        end
+    end
     -- RunService:BindToRenderStep(FUNCNAME_UPDATE, ACTION_PRIO, function(dt)
     --     self:update(dt)
     -- end)
@@ -146,14 +156,13 @@ function Simulation:onCharAdded(character: Model)
 end
 
 function Simulation:onCharRemoving(character: Model)
-    print("::: CHARACTER REMOVING :::")
     if (Players.LocalPlayer.Character) then
         warn("onCharRemoving called with existing character")
         Players.LocalPlayer.Character = nil
         return
     end
 
-    RunService:UnbindFromRenderStep(FUNCNAME_UPDATE)
+    RunService:UnbindFromRenderStep(SIM_UPDATE_FUNC)
 end
 
 -- task.spawn(function()

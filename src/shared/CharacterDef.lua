@@ -1,5 +1,7 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local CollisionGroups = require(ReplicatedStorage.Shared.CollisionGroups)
 
@@ -8,7 +10,7 @@ local DEBUG_DISABLE_CHAR = false
 local DEBUG_COLL_COLOR3 = Color3.fromRGB(0, 0, 255)
 
 local ADD_BUOYANCY_SENSOR = true
-local CREATE_BASE_FORCES = true
+local CREATE_BASE_FORCES = false
 local USE_PLAYERMDL_MASS = false
 local MAIN_ROOT_PRIO = 100
 
@@ -23,6 +25,7 @@ local PARAMS = {
     LEGCOLL_SIZE = Vector3.new(2, 2, 2),
     ROOTPART_SHAPE = Enum.PartType.Block,
     MAINCOLL_SHAPE = Enum.PartType.Cylinder,
+    LEGCOLL_SHAPE = Enum.PartType.Cylinder,
     ROOTPART_CF = CFrame.identity,
     MAINCOLL_CF = CFrame.new(
         0, 0.5, 0,
@@ -37,13 +40,13 @@ local PARAMS = {
         0, 0, 1
     ),
     PLAYERMODEL_OFFSET_CF = CFrame.new(
-        0, 0.5, -0.8,
-        -1, 0, 0,
+        0, 0.5, 0,
+        1, 0, 0,
         0, 1, 0,
-        0, 0, -1
+        0, 0, 1
     ),
     PHYS_PROPERTIES = PhysicalProperties.new(
-        50, 0, 0, 100, 100
+        2, 0, 0, 100, 100
     )
 }
 
@@ -91,7 +94,7 @@ local function createCharacter(playerModel: Model?): Model
     local character = Instance.new("Model")
     local rootPart = createPart("RootPart", PARAMS.ROOTPART_SIZE, PARAMS.ROOTPART_CF, PARAMS.ROOTPART_SHAPE)
     local mainColl = createPart("MainColl", PARAMS.MAINCOLL_SIZE, PARAMS.MAINCOLL_CF, PARAMS.MAINCOLL_SHAPE)
-    local legColl = createPart("LegColl", PARAMS.LEGCOLL_SIZE, PARAMS.LEGCOLL_CF, PARAMS.MAINCOLL_SHAPE)
+    local legColl = createPart("LegColl", PARAMS.LEGCOLL_SIZE, PARAMS.LEGCOLL_CF, PARAMS.LEGCOLL_SHAPE)
 
     rootPart.Parent, mainColl.Parent, legColl.Parent = character, character, character
     rootPart.CanCollide, rootPart.CanQuery, rootPart.CanTouch = false, false, false
@@ -132,20 +135,29 @@ local function createCharacter(playerModel: Model?): Model
         end
 
         local plrMdlClone = playerModel:Clone()
-        local originalPP = plrMdlClone.PrimaryPart
+        local plrMdlPrimPart = plrMdlClone.PrimaryPart
 
-        for _, inst: Instance in pairs(plrMdlClone:GetDescendants()) do
+        for _, inst: Instance in pairs(plrMdlClone:GetChildren()) do
             if (inst:IsA("BasePart")) then
                 inst.Parent = character
                 if (not USE_PLAYERMDL_MASS) then
                     (inst :: BasePart).Massless = true
                 end
             end
+            if (inst:IsA("Folder")) then
+                inst.Parent = character
+            end
         end
-        plrMdlClone.PrimaryPart = originalPP
-        plrMdlClone.PrimaryPart.CFrame = rootPart.CFrame * PARAMS.PLAYERMODEL_OFFSET_CF
-        createParentedWeld(rootPart, plrMdlClone.PrimaryPart)
-        plrMdlClone.Parent = character
+        plrMdlPrimPart.CFrame = rootPart.CFrame * PARAMS.PLAYERMODEL_OFFSET_CF
+        createParentedWeld(rootPart, plrMdlPrimPart)
+        plrMdlClone:Destroy()
+    end
+
+    local animController = Instance.new("AnimationController", character)
+    Instance.new("Animator", animController)
+
+    if (Workspace.StreamingEnabled) then
+        character.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
     end
 
     return character

@@ -25,4 +25,8 @@ function Air:update(dt: number)
     
 end
 
+function Air:destroy()
+
+end
+
 return Air

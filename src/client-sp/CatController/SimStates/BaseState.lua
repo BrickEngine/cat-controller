@@ -29,7 +29,7 @@ local BaseState = {}
 BaseState.__index = BaseState
 
 function BaseState.new(_simulation)
-    local self = setmetatable({} :: any, BaseState) :: BaseStateType
+    local self = setmetatable({}, BaseState) :: BaseStateType
 
     self._simulation = _simulation
 
