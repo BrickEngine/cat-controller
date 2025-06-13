@@ -10,13 +10,13 @@ Animation.__index = Animation
 
 Animation.states = {
 	-- idle (0)
-	Idle = {id = "rbxassetid://76728544462648", prio = 0},
+	Idle = {id = "rbxassetid://86097848386875", prio = 0},
 	Crouch = {id = "rbxassetid://91356839033018", prio = 0},
 	-- movement (1)
     Sneak = {id = "rbxassetid://82906371497519", prio = 1},
-    Walk = {id = "rbxassetid://79536250580622", prio = 1},
-    Trot = {id = "rbxassetid://81560499422968", prio = 1},
-    Run = {id = "rbxassetid://90228280985497", prio = 1},
+    Walk = {id = "rbxassetid://103722766186620", prio = 1},
+    Trot = {id = "rbxassetid://84407680772559", prio = 1},
+    Run = {id = "rbxassetid://101495361702146", prio = 1},
 	--SWIM = "",
 	--FALL = "",
 	-- actions (2-5)

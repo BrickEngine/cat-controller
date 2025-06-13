@@ -1,3 +1,4 @@
+local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -6,12 +7,13 @@ local CollisionGroups = require(ReplicatedStorage.Shared.CollisionGroups)
 local DebugVisualize = require(script.Parent.DebugVisualize)
 
 local NUM_RAYS = 32
-local RADIUS_OFFSET = 0.01
-local RAY_Y_OFFSET = 0.25
+local RADIUS_OFFSET = 0.05
+local RAY_Y_OFFSET = 0.1
 local REG_WATER_PARTS = false
-local DO_CEIL_CHECKS = false
 
 local PHI = 1.61803398875
+local TAN_THETA = math.tan(math.rad(60))
+local TAN_START_THETA = math.tan(math.rad(60) - math.rad(2.5))
 local VEC3_ZERO = Vector3.zero
 local VEC3_UP = Vector3.new(0, 1 ,0)
 local VEC3_REGION_SIZE = Vector3.new(4, 4, 4)
@@ -44,22 +46,72 @@ local function radiusDist(k: number, n: number, b: number)
 	end
 end
 
+local function avgPlaneFromPoints(ptsArr: {Vector3}) : {centroid: Vector3, normal: Vector3}
+	local n = #ptsArr
+	local noPlane = {
+			centroid = VEC3_ZERO,
+			normal = VEC3_UP
+		}
+	if (n < 3) then
+		return noPlane
+	end
+
+	local sum = VEC3_ZERO
+	for i,vec: Vector3 in ipairs(ptsArr) do
+		sum += vec
+	end
+	local centroid = sum / n
+
+	local xx, xy, xz, yy, yz, zz = 0, 0, 0, 0, 0, 0
+	for i,vec: Vector3 in ipairs(ptsArr) do
+		local r : Vector3 = vec - centroid
+		xx += r.X * r.X
+		xy += r.X * r.Y
+		xz += r.X * r.Z
+		yy += r.Y * r.Y
+		yz += r.Y * r.Z
+		zz += r.Z * r.Z
+	end
+	local det_x = yy*zz - yz*yz
+    local det_y = xx*zz - xz*xz
+    local det_z = xx*yy - xy*xy
+
+	local det_max = math.max(det_x, det_y, det_z)
+	if (det_max <= 0) then
+		return noPlane
+	end
+
+	local dir: Vector3 = VEC3_ZERO
+	if (det_max == det_x) then
+		dir = Vector3.new(det_x, xz*yz - xy*zz, xy*yz - xz*yy)
+	elseif (det_max == det_y) then
+		dir = Vector3.new(xz*yz - xy*zz, det_y, xy*xz - yz*xx)
+	else
+		dir = Vector3.new(xy*yz - xz*yy, xy*xz - yz*xx, det_z)
+	end
+
+	return {
+		centroid = centroid,
+		normal = dir.Unit
+	}
+end
+
 local Phys = {}
 
 export type physData = {
 	grounded: boolean,
 	inWater: boolean,
-	atCeiling: boolean,
+	pos: Vector3,
+	normal: Vector3,
 	gndHeight: number,
-	avgNormal: Vector3,
-	avgNormalAngle: number,
+	normalAngle: number,
+	steepness: number
 }
 
 function Phys.colliderCast(
 	rootPos: Vector3,
 	maxRadius: number,
 	hipHeight: number,
-	torsoHeight: number,
 	maxIncline: number,
 	gndClearDist: number,
 	rayParams: RaycastParams,
@@ -67,18 +119,12 @@ function Phys.colliderCast(
 )
 	local _grounded = false
 	local _inWater = false
-	local _atCeiling = false
-	local _gndHeight = 0
-	local _ceilHeight = 0
-    local _avgNormal = VEC3_UP
-    local _avgNormalAngle = 0
+	local targetPos = -VEC3_UP * 9999
+    local targetNorm = VEC3_UP
+    local pNormAngle = 0
 
-	local numHitGndRays = 0
-	local numHitCeilRays = 0
-	local numHitNormals = 0
+	local numHits = 0
 	local adjHipHeight = hipHeight + RAY_Y_OFFSET
-	local adjTorsoHeight = torsoHeight + RAY_Y_OFFSET
-	local adjFullHeight = 3 - RAY_Y_OFFSET
 
 	-- terrain water check, use BuoyancySensor if availible
 	if (buoySensor) then
@@ -111,13 +157,17 @@ function Phys.colliderCast(
 	end
 
 	-- cylinder cast checks
+
+	local hitPointsArr = {} :: {Vector3}
+	local hitNormalsArr = {} :: {Vector3}
+	-- TODO: return a hit BasePart, which is closest to the root part
+	--local hitObjectArr = {} :: {BasePart}
+
 	for i=1, NUM_RAYS, 1 do
 		local r = radiusDist(i, NUM_RAYS, BOUND_POINTS) * (maxRadius - RADIUS_OFFSET)
 		local theta = i * 360 * PHI
 		local offsetX = r * math.cos(theta)
 		local offsetZ = r * math.sin(theta)
-		--local pHipHeightOffset = -(r^4)*(adjHipHeight/maxRadius^4)
-		--local currGndClearDis = gndClearDist + pHipHeightOffset
 
 		local ray = Workspace:Raycast(
 			Vector3.new(
@@ -125,88 +175,131 @@ function Phys.colliderCast(
 				rootPos.Y + RAY_Y_OFFSET,
 				rootPos.Z + offsetZ
 			),
-			-VEC3_UP * 100,
+			-VEC3_UP * adjHipHeight * 2,
 			rayParams
 		)
 		if (ray :: RaycastResult) then
 			local debug_gnd_hit = false
-			local debug_ceil_hit = false
-			local onSlope = ray.Normal:Cross(Vector3.yAxis) ~= VEC3_ZERO
-			local normAng = math.deg(math.acos(ray.Normal:Dot(Vector3.yAxis)))
-
-			_avgNormal += ray.Normal
+			--local onSlope = ray.Normal:Cross(Vector3.yAxis) ~= VEC3_ZERO
+			--local normAng = math.deg(math.acos(ray.Normal:Dot(Vector3.yAxis)))
 
 			if (ray.Distance <= adjHipHeight + gndClearDist) then
-				if (onSlope and normAng <= maxIncline) then
-					_avgNormal += ray.Normal
-					_avgNormalAngle += normAng
-					numHitNormals += 1
-				end
-				_gndHeight += ray.Position.Y
-				numHitGndRays += 1
+				numHits += 1
+				hitPointsArr[numHits] = ray.Position
+				hitNormalsArr[numHits] = ray.Normal
 				debug_gnd_hit = true
-			end
-
-			--check ceiling
-			local ceilRay = false
-			if (DO_CEIL_CHECKS) then
-				ceilRay = Workspace:Raycast(
-					Vector3.new(
-						rootPos.X + offsetX,
-						rootPos.Y + RAY_Y_OFFSET,
-						rootPos.Z + offsetZ
-					),
-					VEC3_UP * 100,
-					rayParams
-				)
-				if (ceilRay :: RaycastResult) then
-					if (ceilRay.Distance <= adjTorsoHeight - 0.25) then
-						debug_ceil_hit = true
-						numHitCeilRays += 1
-					end
-				end
+			else
+				debug_gnd_hit = false
 			end
 
 			-- DEBUG
 			if (DebugVisualize.enabled) then
 				local gndRayColor
-				local ceilRayColor
 				if (debug_gnd_hit) then
 					gndRayColor = Color3.new(0, 255, 0)
 				else
 					gndRayColor = Color3.new(255, 0, 0)
 				end
-				if (debug_ceil_hit) then
-					ceilRayColor = Color3.new(0, 255, 0)
-				else
-					ceilRayColor = Color3.new(255, 0, 0)
-				end
 				DebugVisualize.point(ray.Position, gndRayColor)
-				if (ceilRay) then
-					DebugVisualize.point(ceilRay.Position, ceilRayColor)
-				end
 			end
 		end
 	end
 
-	if (numHitGndRays > 0) then
-		_gndHeight = _gndHeight / numHitGndRays
+	_grounded = true
 
-		if (numHitNormals > 0) then
-			_avgNormalAngle = _avgNormalAngle / numHitNormals
-		end
-		_grounded = true
+	if (numHits > 2) then
+		local planeData = avgPlaneFromPoints(hitPointsArr, hitNormalsArr)
+		targetPos = planeData.centroid
+		targetNorm = planeData.normal
+		pNormAngle = math.deg(math.acos(targetNorm:Dot(VEC3_UP)))
+	elseif (numHits == 2) then
+		local p1, p2 = hitPointsArr[1], hitPointsArr[2]
+		local n1, n2 = hitNormalsArr[1], hitNormalsArr[2]
+		targetPos = (p1 + p2)*0.5
+		targetNorm = (n1 + n2)*0.5
+	elseif (numHits == 1) then
+		targetPos = hitPointsArr[1]
+		targetNorm = hitNormalsArr[1]
+	else
+		_grounded = false
 	end
-	_atCeiling = (numHitCeilRays > 0)
 
+	pNormAngle = math.asin((VEC3_UP:Cross(targetNorm)).Magnitude) --math.deg(math.acos(targetNorm:Dot(VEC3_UP)))
+
+	local steepness = 0
+	local y = targetNorm.Y
+	local x = Vector2.new(targetNorm.X, targetNorm.Z).Magnitude
+	if math.abs(x) > 0 then
+		steepness = math.min(1, math.max(0, x/y - TAN_START_THETA) / (TAN_THETA - TAN_START_THETA))
+	elseif y < 0 then
+		steepness = 1
+	end
+
+	DebugVisualize.normalPart(targetPos, targetNorm, Vector3.new(0.1,0.1,2))
+	--DebugVisualize.normalPart(avgPos, Vector3.FromAxis(Enum.Axis.Y))
 	return {
         grounded = _grounded,
         inWater = _inWater,
-		atCeiling = _atCeiling,
-        gndHeight = _gndHeight,
-        avgNormal = _avgNormal,
-        avgNormalAngle = _avgNormalAngle
+		pos = targetPos,
+		normal = targetNorm.Unit,
+        gndHeight = targetPos.Y,
+        normalAngle = pNormAngle,
+		steepness = steepness
     } :: physData
 end
+
+-- function Phys.colliderCast(
+-- 	rootPos: Vector3,
+-- 	maxRadius: number,
+-- 	hipHeight: number,
+-- 	maxIncline: number,
+-- 	gndClearDist: number,
+-- 	rayParams: RaycastParams,
+-- 	buoySensor: BuoyancySensor?
+-- )
+-- 	local _grounded = false
+-- 	local _inWater = false
+-- 	local avgPos = VEC3_ZERO
+--     local avgNorm = VEC3_UP
+--     local pNormAngle = 0
+
+-- 	local numHits = 0
+-- 	local adjHipHeight = hipHeight + RAY_Y_OFFSET
+
+-- 	-- sphere cast checks
+-- 	local hitPointsArr = {} :: {Vector3}
+-- 	local hitNormalsArr = {} :: {Vector3}
+-- 	-- TODO: return a hit BasePart, which is closest to the root part
+-- 	--local hitObjectArr = {} :: {BasePart}
+-- 	local sCast = Workspace:Spherecast(
+-- 		Vector3.new(rootPos.X, rootPos.Y + maxRadius, rootPos.Z), maxRadius, -VEC3_UP*10, rayParams
+-- 	)
+
+-- 	if (sCast :: RaycastResult and sCast.Instance) then
+-- 		if ((sCast :: RaycastResult).Distance <= adjHipHeight + gndClearDist + 2) then
+-- 			avgPos = (sCast :: RaycastResult).Position
+-- 			print(avgPos.Y)
+-- 			avgNorm = (sCast :: RaycastResult).Normal
+-- 			pNormAngle = math.deg(math.acos(avgNorm:Dot(VEC3_UP)))
+-- 			if (pNormAngle > 90) then
+-- 				avgNorm = VEC3_UP
+-- 				pNormAngle = 90
+-- 			end
+-- 			_grounded = true
+-- 		end
+-- 	end
+-- 	print(_grounded)
+
+-- 	DebugVisualize.normalPart(avgPos, avgNorm, Vector3.new(0.1,0.1,2))
+-- 	--DebugVisualize.normalPart(avgPos, Vector3.FromAxis(Enum.Axis.Y))
+-- 	return {
+--         grounded = _grounded,
+--         inWater = _inWater,
+-- 		pos = avgPos,
+-- 		normal = avgNorm,
+--         gndHeight = avgPos.Y,
+--         normalAngle = pNormAngle
+--     } :: physData
+-- end
 
 return Phys.colliderCast

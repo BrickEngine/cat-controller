@@ -10,21 +10,21 @@ local BaseState = require(controller.SimStates.BaseState)
 --local self.animation = require(controller.Animation)
 local PhysCheck = require(controller.Common.PhysCheck)
 
+local DebugVisualize = require(controller.Common.DebugVisualize)
+
 local GND_WALK_SPEED = 1
 local GND_RUN_SPEED = 2.5
-local GND_CLEAR = 0.4
+local GND_CLEAR = 0.5
 local MAX_INCLINE = 60 -- deg
+local MAX_INCL_ANG = math.rad(80)
 local JUMP_HEIGHT = 6 -- studs
-local JUMP_TIME = 0.4
+local JUMP_TIME = 0.33
 local PHYS_DT = 0.05
 local MOVE_DAMP = 5
 local HUGE_TORQUE = 2000000000
-local ROT_LERP_DT = 0.25
-
+local ROT_LERP_DELTA = 0.25 -- lower value ~ slower rotation
 local PHYS_RADIUS = CharacterDef.PARAMS.LEGCOLL_SIZE.Z * 0.5
 local HIP_HEIGHT = CharacterDef.PARAMS.LEGCOLL_SIZE.X -- due to rotation X instead of Y
-local COLL_HEIGHT = CharacterDef.PARAMS.MAINCOLL_SIZE.X -- due to rotation X instead of Y
-
 local VEC3_ZERO = Vector3.zero
 local VEC3_UP = Vector3.new(0, 1, 0)
 local PI2 = math.pi*2
@@ -44,11 +44,14 @@ local function createForces(mdl: Model): {[string]: Instance}
     att.Parent = mdl.PrimaryPart
 
     local moveForce = Instance.new("VectorForce")
+    moveForce.Enabled = false
     moveForce.Attachment0 = att
+    moveForce.ApplyAtCenterOfMass = true
     moveForce.RelativeTo = Enum.ActuatorRelativeTo.World
     moveForce.Parent = mdl.PrimaryPart
 
     local rotForce = Instance.new("AlignOrientation")
+    rotForce.Enabled = false
     rotForce.Mode = Enum.OrientationAlignmentMode.OneAttachment
     rotForce.Attachment0 = att
     rotForce.AlignType = Enum.AlignType.AllAxes
@@ -58,19 +61,21 @@ local function createForces(mdl: Model): {[string]: Instance}
     rotForce.Parent = mdl.PrimaryPart
 
     local posForce = Instance.new("AlignPosition")
+    posForce.Enabled = false
     posForce.Attachment0 = att
     posForce.Mode = Enum.PositionAlignmentMode.OneAttachment
     posForce.ForceLimitMode = Enum.ForceLimitMode.PerAxis
     posForce.MaxAxesForce = Vector3.zero
-    posForce.MaxVelocity = 50000
+    posForce.MaxVelocity = 100000
     posForce.Responsiveness = 200
+    posForce.ForceRelativeTo = Enum.ActuatorRelativeTo.World
     posForce.Position = mdl.PrimaryPart.CFrame.Position
     posForce.Parent = mdl.PrimaryPart
 
     return {
         moveForce = moveForce,
         rotForce = rotForce,
-        posForce = posForce
+        posForce = posForce,
     }
 end
 
@@ -91,23 +96,32 @@ local function makeCFrame(up, look)
 	return CFrame.new(0, 0, 0, ru.x, upu.x, looku.x, ru.y, upu.y, looku.y, ru.z, upu.z, looku.z)
 end
 
-local function calcWalkAccel(moveVec: Vector3, rootPos: Vector3, currVel: Vector3, dt: number): Vector3
+local function projectOnPlaneVec3(v: Vector3, norm: Vector3)
+    local sqrMag = norm:Dot(norm)
+    if (sqrMag < 0.01) then
+        return v
+    end
+    local dot = v:Dot(norm)
+    return Vector3.new(
+        v.X - norm.X * dot / sqrMag,
+        v.Y - norm.Y * dot / sqrMag,
+        v.Z - norm.Z * dot / sqrMag
+    )
+end
+
+local function calcWalkAccel(moveVec: Vector3, rootPos: Vector3, currVel: Vector3, normal: Vector3, dt: number): Vector3
     local isRunning = InputManager:getIsRunning()
+    --local adjMoveVec = projectOnPlaneVec3(moveVec, normal)
     local target
     if (isRunning) then
-        target = rootPos - moveVec*GND_RUN_SPEED
+        target = rootPos - moveVec * GND_RUN_SPEED
     else
-        target = rootPos - moveVec*GND_WALK_SPEED
+        target = rootPos - moveVec * GND_WALK_SPEED
     end
     return 2*((target - rootPos) - currVel*dt)/(dt*dt*MOVE_DAMP), isRunning
 end
 
 function accelFromDispl(posDiff: number, vel: number, downForce: number, dt: number): number
-    --print(posDiff)
-    local fac = 1
-    if (posDiff <= 0.5) then
-        fac = posDiff
-    end
     return downForce + (2*(posDiff - vel*dt))/(dt*dt)
 end
 
@@ -153,15 +167,6 @@ local function lerpAngle(a0: number, a1: number, t: number): number
 	return a0 + angleShortest(a0, a1)*t
 end
 
--- dt = elapsed time
--- s = start
--- e = end
--- t = duration (total time)
-local function easeOutQuart(dt, t, s, e)
-    dt = dt/t - 1
-    return -(e-s) * (dt^4 - 1) + s
-end
-
 local function jumpSignal()
 	if (InputManager:getIsJumping()) then
 		if (not jSignal) then
@@ -197,11 +202,13 @@ function Ground.new(...)
 end
 
 function Ground:stateEnter()
-    if (not self.animation) then
-        error("animations not initialized")
+    if (not self.forces) then
+        return
     end
 
-    self.animation:setState("Idle")
+    for _, f: Instance in self.forces do
+        f.Enabled = true
+    end
 end
 
 function Ground:stateLeave()
@@ -215,22 +222,22 @@ function Ground:stateLeave()
 end
 
 local lastTargetAng = 0
-local lastTargetPosY = 0
-local gndLeft = false
 
 function Ground:update(dt: number)
     local primaryPart: BasePart = self.character.PrimaryPart
     local camCFrame: CFrame = Workspace.CurrentCamera.CFrame
     local currVel: Vector3 = primaryPart.AssemblyLinearVelocity
     local currPos: Vector3 = primaryPart.CFrame.Position
+    local g = Workspace.Gravity
+    local gravityVec: Vector3 = Vector3.new(0, g, 0)
     local mass: number = primaryPart.AssemblyMass
+    local movingUp: boolean = currVel.Y > 0.1
 
     -- do phys checks
     local physData: PhysCheck.physData = PhysCheck(
         currPos,
         PHYS_RADIUS,
         HIP_HEIGHT,
-        COLL_HEIGHT,
         MAX_INCLINE,
         GND_CLEAR,
         ray_params
@@ -243,7 +250,7 @@ function Ground:update(dt: number)
     local moveDirVec = getCFrameRelMoveVec(camCFrame)
     local currHoriVel = Vector3.new(currVel.X, 0, currVel.Z)
     local accelVec, isRunning = calcWalkAccel(
-        moveDirVec, currPos, currHoriVel, PHYS_DT
+        moveDirVec, currPos, currHoriVel, physData.normal, PHYS_DT
     )
 
     -- primaryPart rotation based on vecForce direction
@@ -260,7 +267,7 @@ function Ground:update(dt: number)
         --targetAng = lerpAngle(currAng, targetAng, LERP_DELTA * currVel.Magnitude)
 
         if (math.abs(angleShortest(currAng, targetAng)) > 0) then
-            targetAng = lerpAngle(currAng, targetAng, ROT_LERP_DT)
+            targetAng = lerpAngle(currAng, targetAng, ROT_LERP_DELTA)
         end
 
         self.forces.rotForce.CFrame = makeCFrame(
@@ -271,15 +278,13 @@ function Ground:update(dt: number)
     end
 
     if (physData.grounded) then
-        gndLeft = false
-
         if (currHoriVel.Magnitude > 0.5) then
             if (isRunning) then
                 self.animation:setState("Run")
-                self.animation:adjustSpeed(currHoriVel.Magnitude*0.05)
+                self.animation:adjustSpeed(currHoriVel.Magnitude*0.08)
             else
                 self.animation:setState("Walk")
-                self.animation:adjustSpeed(currHoriVel.Magnitude*0.1)
+                self.animation:adjustSpeed(currHoriVel.Magnitude*0.3)
             end
         else
             self.animation:setState("Idle")
@@ -287,14 +292,16 @@ function Ground:update(dt: number)
         end
 
         local targetPosY = physData.gndHeight + HIP_HEIGHT
-        if (physData.atCeiling) then
-            targetPosY = primaryPart.CFrame.Position.Y
+
+        -- if (not movingUp) then
+        --     self.forces.posForce.Enabled = true
+        -- end
+
+        if (jTime <= 0) then
+            self.forces.posForce.Enabled = true
         end
 
         -- handle jumping
-        if (jTime <= 0 or currVel.Y < 0) then
-            self.forces.posForce.Enabled = true
-        end
         if (jumpSignal() and jTime <= 0) then
             -- temp sound for fun
             do
@@ -304,29 +311,69 @@ function Ground:update(dt: number)
                 s:Destroy()
             end
 
-            local jumpInitVel: number = math.sqrt(Workspace.Gravity * 2 * JUMP_HEIGHT)
-            primaryPart:ApplyImpulse(Vector3.new(0, jumpInitVel-currVel.Y, 0)*mass)
-
-            jTime = JUMP_TIME
             self.forces.posForce.Enabled = false
+
+            local jumpInitVel: number = math.sqrt(Workspace.Gravity * 2 * JUMP_HEIGHT)
+            primaryPart:ApplyImpulse(VEC3_UP * (jumpInitVel - currVel.Y) * mass)
+            jTime = JUMP_TIME
         end
 
-        local accelUp = substepAccel(currVel.Y, currPos.Y, physData.gndHeight + HIP_HEIGHT, workspace.Gravity, 3, PHYS_DT)
+        debug.profilebegin("PHYS_SUBSTEP_PLAYER")
+
+        local accelUp = substepAccel(
+            currVel.Y, currPos.Y, physData.gndHeight + HIP_HEIGHT, Workspace.Gravity, 5, dt --math.max(dt, PHYS_DT)
+        )
+        debug.profileend()
+
+        local deltaHeight = math.max((targetPosY - currPos.Y)*1.01, 0)
+        local clampedNormAng = math.min(MAX_INCL_ANG, physData.normalAngle)
+        deltaHeight = math.min(deltaHeight, HIP_HEIGHT)
+        --local maxUpVel = math.sqrt(Workspace.Gravity * deltaHeight * 2)
+        local maxUpVel = math.sqrt(Workspace.Gravity * deltaHeight * 2) 
+            + deltaHeight*0.5 * currHoriVel.Magnitude * math.sin(clampedNormAng)
+        local maxImpulse = math.max((maxUpVel - currVel.Y)*60, 0)
+        accelUp = math.max(math.min(accelUp, maxImpulse), -1)
+
+        -- if (physData.steepness > 0) then
+        --     local aGrav = -VEC3_UP * Workspace.Gravity
+        --     local aInto = physData.normal * math.min(0, physData.normal:Dot(aGrav))
+        --     local aNew = aGrav - aInto
+        --     --print(aNew.Y)
+        --     local v = currHoriVel.Magnitude
+        --     accelUp += aNew.Y * physData.steepness --((currHoriVel.Magnitude * math.tan(physData.normalAngle)) * dt)
+        -- end
+
+        --TODO: only add vertical accel to accelVec, not accelUp
+
+        if (physData.normalAngle > 0) then
+            local addAccel = currHoriVel.Magnitude * (1 + math.sin(physData.normalAngle))
+            --accelUp += math.sin(physData.normalAngle) * currHoriVel.Magnitude / dt
+            --print(addAccel)
+        end
 
         self.forces.posForce.Position = Vector3.new(0, targetPosY, 0)
-        self.forces.posForce.MaxAxesForce = Vector3.new(0, (Workspace.Gravity + math.abs(accelUp)*5)*mass, 0)
-        self.forces.moveForce.Force = accelVec*mass --(Vector3.new(0, accelUp, 0) + accelVec)*mass*3
+        self.forces.posForce.MaxAxesForce = VEC3_UP * g * mass * 20 --VEC3_UP*(Workspace.Gravity + accelUp)*mass
 
-        lastTargetPosY = targetPosY
+        -- if (jTime <= 0) then
+        --     self.forces.moveForce.Force = (Vector3.new(0, accelUp, 0) + accelVec) * mass
+        -- else
+        --     self.forces.moveForce.Force = accelVec * mass
+        -- end
+        --self.forces.moveForce.Force = accelVec * mass
+
+        if (physData.normalAngle > MAX_INCL_ANG) then
+            self.forces.moveForce.Force = projectOnPlaneVec3(accelVec * 0.1, physData.normal) * mass
+            self.forces.posForce.Enabled = false
+        else
+            self.forces.moveForce.Force = accelVec * mass
+        end
     else
         --self.animation:setState()
-        if (not gndLeft and jTime <= 0 and currVel.Y > 0) then
-            gndLeft = true
-            primaryPart.AssemblyLinearVelocity = Vector3.new(currVel.X, 0, currVel.Z)
-        end
-        self.forces.moveForce.Force = accelVec*mass*0.1
+        self.forces.moveForce.Force = accelVec * mass * 0.1
         self.forces.posForce.Enabled = false
     end
+
+    print(math.deg(physData.normalAngle))
 
     jTime = decrementCounter(jTime, dt)
 end
