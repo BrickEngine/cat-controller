@@ -1,9 +1,9 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local StarterPlayer = game:GetService("StarterPlayer")
-local Workspace = game:GetService("Workspace")
 
-local CatController = require(StarterPlayer.StarterPlayerScripts.CatController)
+local playerScripts = script.Parent
+
+local CatController = require(playerScripts:WaitForChild("CatController"))
 local NetApiDef = require(ReplicatedStorage.Shared.NetworkApiDef)
 local CliApi = require(script.CliApi)
 

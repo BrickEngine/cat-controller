@@ -15,18 +15,13 @@ local Air = require(simStates.Air) :: BaseState.BaseStateType
 
 local primaryPartListener: RBXScriptConnection
 
-local BASE_MOVE_SPEED = 1
-local BASE_TURN_SPEED = 1
-
 local Simulation = {}
 Simulation.__index = Simulation
 
 function Simulation.new()
     local self = setmetatable({}, Simulation) :: any
-
     self.states = {}
     self.currentState = nil
-    self.currentStateId = nil
     self.simUpdateConn = nil
     self.animation = nil
 
@@ -38,6 +33,8 @@ function Simulation.new()
     if Players.LocalPlayer.Character then
 		self:onCharAdded(Players.LocalPlayer.Character)
 	end
+
+    print("Simulation initialized")
 
     return self
 end
@@ -65,8 +62,18 @@ function Simulation:transitionState(newState: BaseState.BaseStateType)
     self.currentState:stateEnter()
 end
 
-function Simulation:getCurrentStateId()
-    return self.currentStateId
+function Simulation:getCurrentStateId(): number
+    if (self.currentState) then
+        return self.currentState.id
+    end
+    return -1
+end
+
+function Simulation:getNormal(): Vector3?
+    if (self.currentState and self.currentState.normal) then
+        return self.currentState.normal
+    end
+    return Vector3.zero
 end
 
 function Simulation:onRootPartChanged()
@@ -95,7 +102,6 @@ function Simulation:resetSimulation()
 
     self.states = {
         Ground = Ground.new(self),
-        Air = Air.new(self),
         Water = Water.new(self)
     }
     self.currentState = self.states.Ground
@@ -141,10 +147,7 @@ function Simulation:onCharAdded(character: Model)
     end)
 
     for _, s: Instance in pairs(StarterPlayer.StarterCharacterScripts:GetChildren()) do
-        if (s:IsA("Script") or s:IsA("LocalScript") or s:IsA("ModuleScript")) then
-            local sClone = s:Clone()
-            sClone.Parent = self.character
-        end
+        s.Parent = self.character
     end
 
     self:resetSimulation()

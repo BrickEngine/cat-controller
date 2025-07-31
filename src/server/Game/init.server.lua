@@ -84,7 +84,7 @@ local function onPlayerRemoving(plr: Player)
     removePlayerCharacter(plr)
 end
 
-local rEventFunctions = {
+local remEventFunctions = {
     [NetApiDef.clientEvents.requestSpawn] = function(plr: Player)
         if (plr.Character) then
             warn(plr.Name.." attempted to spawn with active character")
@@ -98,10 +98,17 @@ local rEventFunctions = {
     end
 }
 
-local rFuncFunctions = {}
+local fastRemEventFunctions = {
+    [NetApiDef.clientFastEvents.cJointsDataSend] = function(plr: Player)
+        -- TODO
+    end
+}
 
-ServApi.implementREvents(rEventFunctions)
-ServApi.implementRFunctions(rFuncFunctions)
+local remFunctionFunctions = {}
+
+ServApi.implementREvents(remEventFunctions)
+ServApi.implementFastREvents(fastRemEventFunctions)
+ServApi.implementRFunctions(remFunctionFunctions)
 
 Players.PlayerAdded:Connect(onPlayerAdded)
 Players.PlayerRemoving:Connect(onPlayerRemoving)

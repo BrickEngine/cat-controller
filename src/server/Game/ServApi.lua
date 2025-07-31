@@ -9,7 +9,7 @@ apiObjFold.Parent = ReplicatedStorage
 
 local ServApi = {}
 
--- Table of RemoteEvents to implement
+-- table of RemoteEvents to implement
 function ServApi.implementREvents(tbl: any)
     for _, eventName in pairs(NetApiDef.clientEvents) do
         local remEvent = Instance.new("RemoteEvent")
@@ -18,7 +18,7 @@ function ServApi.implementREvents(tbl: any)
         local serverMethod = tbl[eventName]
 
         if not serverMethod then
-			error("missing RE implementation for " .. tostring(eventName))
+			warn("missing RE implementation for " .. tostring(eventName))
 		end
 
         remEvent.OnServerEvent:Connect(serverMethod)
@@ -27,7 +27,25 @@ function ServApi.implementREvents(tbl: any)
     end
 end
 
--- Table of RemoteFunctions to implement
+-- table of FastRemoteEvents to implement
+function ServApi.implementFastREvents(tbl: any)
+    for _, eventName in pairs(NetApiDef.clientFastEvents) do
+        local fastRemEvent = Instance.new("UnreliableRemoteEvent")
+        fastRemEvent.Name = eventName
+
+        local serverMethod = tbl[eventName]
+
+        if not serverMethod then
+			warn("missing RE implementation for " .. tostring(eventName))
+		end
+
+        fastRemEvent.OnServerEvent:Connect(serverMethod)
+
+        fastRemEvent.Parent = apiObjFold
+    end
+end
+
+-- table of RemoteFunctions to implement
 function ServApi.implementRFunctions(tbl: any)
     for _, eventName in pairs(NetApiDef.remoteFunctions) do
         local remFunc = Instance.new("RemoteFunction")
@@ -37,7 +55,7 @@ function ServApi.implementRFunctions(tbl: any)
         local serverMethod = tbl[eventName]
 
         if not serverMethod then
-			error("missing RF implementation for " .. tostring(eventName))
+			warn("missing RF implementation for " .. tostring(eventName))
 		end
 
         remFunc.OnServerInvoke = function(...)

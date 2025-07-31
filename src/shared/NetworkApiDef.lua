@@ -13,13 +13,22 @@ local NetApi = {}
 NetApi = {
     FOLD_NAME = FOLD_NAME,
 
+    -- client -> server
     clientEvents = {
-        requestSpawn = "requestSpawn",
-        requestDespawn = "requestDespawn"
+        requestSpawn = "REQUEST_SPAWN",
+        requestDespawn = "REQUEST_DESPAWN"
     },
+    clientFastEvents = {
+        cJointsDataSend = "C_JOINTS_DATA_SEND"
+    },
+    -- server -> client
     serverEvents = {
 
     },
+    serverFastEvents = {
+        cJointsDataRec = "C_JOINTS_DATA_REC"
+    },
+    -- client -> server -> client
     remoteFunctions = {
 
     }

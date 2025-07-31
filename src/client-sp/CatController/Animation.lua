@@ -35,7 +35,7 @@ function Animation.new(simulation)
 	self.animationController = self.character:FindFirstChildOfClass("AnimationController")
 	self.animator = self.animationController:FindFirstChildOfClass("Animator")
 
-	self.currentState = "Idle"
+	self.currentState = "None"
 	self.animTracks = {} :: {[string]: AnimationTrack}
 
 	for animName: string, animData: AnimationStateType in pairs(self.states) do
@@ -56,17 +56,20 @@ function Animation.new(simulation)
 	return self
 end
 
-function Animation:setState(newState: string, f_dt: number?)
+function Animation:setState(newState: string, f_t: number?)
 	if (not newState) then
 		error("missing newState parameter")
 	end
-
 	if (newState == self.currentState) then
 		return
 	end
-	self.animTracks[self.currentState]:Stop()
+	local fade = f_t or 0.100000001
+
+	if (self.animTracks[self.currentState]) then
+		self.animTracks[self.currentState]:Stop()
+	end
 	self.currentState = newState
-	self.animTracks[self.currentState]:Play(f_dt)
+	self.animTracks[self.currentState]:Play(fade)
 end
 
 function Animation:adjustSpeed(speed: number)
