@@ -55,9 +55,9 @@ local function setPlrReplicationFocus(plr: Player)
 end
 
 local function spawnAndSetPlrChar(plr: Player)
-    local playerModel = StarterPlayer:FindFirstChild("PlayerModel") -- TODO: proper PlayerModel selection
-
-	local newCharacter = CharacterDef.createCharacter(playerModel)
+    -- TODO: proper PlayerModel selection
+    local plrMdl = StarterPlayer:FindFirstChild("PlayerModel")
+	local newCharacter = CharacterDef.createCharacter(plrMdl)
 
 	local SelectedSpawn = spawns[math.random(1, #spawns)]
     do

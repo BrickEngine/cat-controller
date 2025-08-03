@@ -1,6 +1,9 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- source / license:
 -- https://github.com/LPGhatguy/luanoid
 -- license: CC0, MIT
+
+local Global = require(ReplicatedStorage.Shared.Global)
 
 local Terrain = game:GetService("Workspace").Terrain
 
@@ -12,7 +15,7 @@ local unusedParts = {}
 local usedParts = {}
 
 local DebugVisualize = {
-	enabled = true,
+	enabled = Global.GAME_PHYS_DEBUG,
 }
 
 function DebugVisualize.point(position, color)
@@ -39,7 +42,7 @@ function DebugVisualize.point(position, color)
 end
 
 function DebugVisualize.vector(position, direction, color)
-	if not DebugVisualize.enabled then
+	if (not DebugVisualize.enabled) then
 		return
 	end
 

@@ -3,9 +3,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
+local Gobal = require(ReplicatedStorage.Shared.Global)
 local CollisionGroups = require(ReplicatedStorage.Shared.CollisionGroups)
 
-local DEBUG = true
 local DEBUG_COLL_COLOR3 = Color3.fromRGB(0, 0, 255)
 
 local PLAYERMDL_MASS_ENABLED = false
@@ -102,7 +102,7 @@ local function createCharacter(playerModel: Model?): Model
     character.PrimaryPart = rootPart
     createParentedAttachment("Root", rootPart)
 
-    if (DEBUG) then
+    if (Gobal.GAME_PHYS_DEBUG) then
         setMdlTransparency(character, 0.5)
         mainColl.Color = DEBUG_COLL_COLOR3
     end
