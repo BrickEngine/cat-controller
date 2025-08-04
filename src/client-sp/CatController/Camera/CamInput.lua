@@ -10,10 +10,10 @@ local CAMERA_INPUT_PRIORITY = Enum.ContextActionPriority.Medium.Value
 local MB_TAP_LENGTH = 0.3
 
 local ROTATION_SPEED_KEYS = math.rad(120)
-local ROTATION_SPEED_GAMEPAD = Vector2.new(1, 0.77)*math.rad(4)
-local ROTATION_SPEED_MOUSE = Vector2.new(1, 0.77)*math.rad(0.5)
-local ROTATION_SPEED_POINTERACTION = Vector2.new(1, 0.77)*math.rad(7)
-local ROTATION_SPEED_TOUCH = Vector2.new(1, 0.66)*math.rad(1)
+local ROTATION_SPEED_GAMEPAD = Vector2.new(1, 0.77) * math.rad(4) * 60
+local ROTATION_SPEED_MOUSE = Vector2.new(1, 0.77) * math.rad(0.5)
+local ROTATION_SPEED_POINTERACTION = Vector2.new(1, 0.77) * math.rad(7)
+local ROTATION_SPEED_TOUCH = Vector2.new(1, 0.66) * math.rad(1)
 local ROTATION_SPEED_MULT = 2.0
 
 local ZOOM_SPEED_MOUSE = 1
@@ -59,12 +59,12 @@ local function adjustTouchPitchSensitivity(delta: Vector2): Vector2
 	if not camera then
 		return delta
 	end
-	
+
 	local pitch = camera.CFrame:ToEulerAnglesYXZ()
 	if delta.Y*pitch >= 0 then
 		return delta
 	end
-	
+
 	local curveY = 1 - (2*math.abs(pitch)/math.pi)^0.75
 	local sensitivity = curveY*(1 - MIN_TOUCH_SENSITIVITY_FRACTION) + MIN_TOUCH_SENSITIVITY_FRACTION
 
@@ -80,7 +80,7 @@ local function isInDynamicThumbstickArea(pos: Vector3): boolean
 	if not thumbstickFrame then
 		return false
 	end
-	
+
 	if not touchGui.Enabled then
 		return false
 	end
@@ -138,14 +138,14 @@ do
 		Move = Vector2.new(),
 		Pinch = 0,
 	}
-	
+
 	local gamepadZoomPressBindable = Instance.new("BindableEvent")
 	CameraInput.gamepadZoomPress = gamepadZoomPressBindable.Event
-	
+
 	function CameraInput.getRotationActivated(): boolean
 		return panInputCount > 0 or gamepadState.Thumbstick2.Magnitude > 0
 	end
-	
+
 	function CameraInput.getRotation(dt, disableKeyboardRotation: boolean?): Vector2
 		local inversionVector = Vector2.new(1, UserGameSettings:GetCameraYInvertValue())
 
@@ -173,7 +173,7 @@ do
 
 		return result*inversionVector
 	end
-	
+
 	function CameraInput.getZoomDelta(): number
 		local kKeyboard = keyboardState.O - keyboardState.I
 		local kMouse = -mouseState.Wheel + mouseState.Pinch
@@ -192,17 +192,17 @@ do
 			local delta = input.Delta
 			mouseState.Movement = Vector2.new(delta.X, delta.Y)
 		end
-		
+
 		local function keypress(action, state, input)
 			keyboardState[input.KeyCode.Name] = state == Enum.UserInputState.Begin and 1 or 0
 		end
-		
+
 		local function gamepadZoomPress(action, state, input)
 			if state == Enum.UserInputState.Begin then
 				gamepadZoomPressBindable:Fire()
 			end
 		end
-		
+
 		local function resetInputDevices()
 			for _, device in pairs({
 				gamepadState,
@@ -225,26 +225,27 @@ do
 		local touchBegan, touchChanged, touchEnded, resetTouchState do
 			-- Use TouchPan & TouchPinch when they work in the Studio emulator
 
-			local touches: {[InputObject]: boolean?} = {} -- {[InputObject] = sunk}
-			local dynamicThumbstickInput: InputObject? -- Special-cased 
+			local touches: {[InputObject]: boolean?} = {}
+			local dynamicThumbstickInput: InputObject?
 			local lastPinchDiameter: number?
 
 			function touchBegan(input: InputObject, sunk: boolean)
 				assert(input.UserInputType == Enum.UserInputType.Touch)
 				assert(input.UserInputState == Enum.UserInputState.Begin)
-				
-				if dynamicThumbstickInput == nil and isInDynamicThumbstickArea(input.Position) and not sunk then
+
+				if (dynamicThumbstickInput == nil and isInDynamicThumbstickArea(input.Position) and not sunk) then
+
 					-- any finger down starting in the dynamic thumbstick area should always be
 					-- ignored for camera purposes. these must be handled specially from all other
 					-- inputs, as the DT does not sink inputs by itself
 					dynamicThumbstickInput = input
 					return
 				end
-				
-				if not sunk then
+
+				if (not sunk) then
 					incPanInputCount()
 				end
-				
+
 				-- register the finger
 				touches[input] = sunk
 			end
@@ -252,18 +253,18 @@ do
 			function touchEnded(input: InputObject, sunk: boolean)
 				assert(input.UserInputType == Enum.UserInputType.Touch)
 				assert(input.UserInputState == Enum.UserInputState.End)
-				
+
 				-- reset the DT input
 				if input == dynamicThumbstickInput then
 					dynamicThumbstickInput = nil
 				end
-				
+
 				-- reset pinch state if one unsunk finger lifts
 				if touches[input] == false then
 					lastPinchDiameter = nil
 					decPanInputCount()
 				end
-				
+
 				-- unregister input
 				touches[input] = nil
 			end
@@ -271,25 +272,25 @@ do
 			function touchChanged(input, sunk)
 				assert(input.UserInputType == Enum.UserInputType.Touch)
 				assert(input.UserInputState == Enum.UserInputState.Change)
-				
+
 				-- ignore movement from the DT finger
 				if input == dynamicThumbstickInput then
 					return
 				end
-				
+
 				-- fixup unknown touches
 				if touches[input] == nil then
 					touches[input] = sunk
 				end
-				
+
 				-- collect unsunk touches
 				local unsunkTouches = {}
-				for touch, sunk in pairs(touches) do
-					if not sunk then
+				for touch, sunkTouch in pairs(touches) do
+					if not sunkTouch then
 						table.insert(unsunkTouches, touch)
 					end
 				end
-				
+
 				-- 1 finger: pan
 				if #unsunkTouches == 1 then
 					if touches[input] == false then
@@ -297,15 +298,15 @@ do
 						touchState.Move += Vector2.new(delta.X, delta.Y) -- total touch pan movement (reset at end of frame)
 					end
 				end
-				
+
 				-- 2 fingers: pinch
 				if #unsunkTouches == 2 then
 					local pinchDiameter = (unsunkTouches[1].Position - unsunkTouches[2].Position).Magnitude
-					
+
 					if lastPinchDiameter then
 						touchState.Pinch += pinchDiameter - lastPinchDiameter
 					end
-					
+
 					lastPinchDiameter = pinchDiameter
 				else
 					lastPinchDiameter = nil
@@ -386,14 +387,14 @@ do
 					Enum.KeyCode.I,
 					Enum.KeyCode.O
 				)
-				
+
 				ContextActionService:BindAction(
 					"RbxCameraGamepadZoom",
 					gamepadZoomPress,
 					false,
 					Enum.KeyCode.ButtonR3
 				)
-				
+
 				table.insert(connectionList, UserInputService.InputBegan:Connect(inputBegan))
 				table.insert(connectionList, UserInputService.InputChanged:Connect(inputChanged))
 				table.insert(connectionList, UserInputService.InputEnded:Connect(inputEnded))
@@ -416,7 +417,7 @@ do
 		function CameraInput.getInputEnabled()
 			return inputEnabled
 		end
-		
+
 		function CameraInput.resetInputForFrameEnd()
 			mouseState.Movement = Vector2.new()
 			touchState.Move = Vector2.new()
@@ -437,49 +438,49 @@ do
 	local holdPan = false
 	local togglePan = false
 	local lastRmbDown = 0 -- tick() timestamp of the last right mouse button down event
-	
+
 	function CameraInput.getHoldPan(): boolean
 		return holdPan
 	end
-	
+
 	function CameraInput.getTogglePan(): boolean
 		return togglePan
 	end
-	
+
 	function CameraInput.getPanning(): boolean
 		return togglePan or holdPan
 	end
-	
+
 	function CameraInput.setTogglePan(value: boolean)
 		togglePan = value
 	end
-	
+
 	local cameraToggleInputEnabled = false
 	local rmbDownConnection
 	local rmbUpConnection
-	
+
 	function CameraInput.enableCameraToggleInput()
 		if cameraToggleInputEnabled then
 			return
 		end
 		cameraToggleInputEnabled = true
-	
+
 		holdPan = false
 		togglePan = false
-	
+
 		if rmbDownConnection then
 			rmbDownConnection:Disconnect()
 		end
-	
+
 		if rmbUpConnection then
 			rmbUpConnection:Disconnect()
 		end
-	
+
 		rmbDownConnection = rmbDown:Connect(function()
 			holdPan = true
 			lastRmbDown = tick()
 		end)
-	
+
 		rmbUpConnection = rmbUp:Connect(function()
 			holdPan = false
 			if tick() - lastRmbDown < MB_TAP_LENGTH and (togglePan or UserInputService:GetMouseDelta().Magnitude < 0.1) then --2
@@ -487,18 +488,18 @@ do
 			end
 		end)
 	end
-	
+
 	function CameraInput.disableCameraToggleInput()
 		if not cameraToggleInputEnabled then
 			return
 		end
 		cameraToggleInputEnabled = false
-	
+
 		if rmbDownConnection then
 			rmbDownConnection:Disconnect()
 			rmbDownConnection = nil
 		end
-		
+
 		if rmbUpConnection then
 			rmbUpConnection:Disconnect()
 			rmbUpConnection = nil

@@ -66,56 +66,13 @@ local baseJointOffsets = {
     tail1_c0 = baseJoints:FindFirstChild(JOINT_NAMES.tail1).C0,
 }
 
--- local joints = {
---     root = "PMRoot-TorsoMiddleTop",
---     body = {
---         j0 = "TorsoMiddleTop-TorsoLowerTop",
---         j1 = "TorsoMiddleTop-TorsoUpperTop",
---     },
---     tail = {
---         j0 = "TorsoLowerTop-TopTail1",
---         j1 = "TopTail1-TopTail2",
---         j2 = "TopTail2-TopTail3",
---         j3 = "TopTail3-TopTail4",
---         j4 = "TopTail4-TopTail5",
---         j5 = "TopTail5-TopTail6",
---         j6 = "TopTail6-TopTail7"
---     },
---     fl = {
---         j0 = "TorsoUpperTop-BicepLeft",
---         j1 = "BicepLeft-ShoulderTopLeft",
---         j2 = "ShoulderTopLeft-ArmTopLeft",
---         j3 = "ArmTopLeft-WristTopLeft",
---         j4 = "WristTopLeft-PawLeftFront"
---     },
---     fr = {
---         j0 = "TorsoUpperTop-BicepRight",
---         j1 = "BicepRight-ShoulderTopRight",
---         j2 = "ShoulderTopRight-ArmTopRight",
---         j3 = "ArmTopRight-WristTopRight",
---         j4 = "WristTopRight-PawRightFront"
---     },
---     rl = {
---         j0 = "TorsoLowerTop-ThighLeft",
---         j1 = "ThighLeft-LegTopLeft",
---         j2 = "LegTopLeft-AnkleTopLeft",
---         j3 = "AnkleTopLeft-PawLeftBack"
---     },
---     rr = {
---         j0 = "TorsoLowerTop-ThighRight",
---         j1 = "ThighRight-LegTopRight",
---         j2 = "LegTopRight-AnkleTopRight",
---         j3 = "AnkleTopRight-PawRightBack"
---     }
--- }
-
 local joints = {} :: {[string]: Motor6D}
 for n, str: string in pairs(JOINT_NAMES) do
     local inst = character:FindFirstChild(str, true)
     if (inst :: Motor6D) then
         joints[str] = inst
     else
-        error("instance not found for " .. n)
+        error("Motor6D instance not found for string " .. n)
     end
 end
 
@@ -188,5 +145,6 @@ local updateConn = RunService.PreAnimation:Connect(update)
 character.DescendantRemoving:Connect(function(descendant)
     if (descendant == charRoot) then
         updateConn:Disconnect()
+        updateConn = nil
     end
 end)

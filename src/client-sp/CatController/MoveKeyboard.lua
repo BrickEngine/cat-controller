@@ -26,13 +26,6 @@ function MoveKeyboard.new(CONTROL_PRIORITY: number)
 
     self.CONTROL_PRIORITY = CONTROL_PRIORITY
 
-    self.f_val = 0
-    self.b_val = 0
-    self.l_val = 0
-    self.r_val = 0
-	self.jumpInp = false
-	self.runInp = false
-
     return self
 end
 
@@ -53,8 +46,8 @@ function MoveKeyboard:enable(enable: boolean)
 	else
 		self._connectionUtil:disconnectAll()
 	end
-	self.enabled = true
 
+	self.enabled = enable
     return true
 end
 
@@ -111,7 +104,7 @@ function MoveKeyboard:bindActions()
 	ContextActionService:BindActionAtPriority(ContextActions.MOVE_R, handleMoveRight, false, self.CONTROL_PRIORITY, KEY_D)
 	ContextActionService:BindActionAtPriority(ContextActions.JUMP, handleJumpAction, false, self.CONTROL_PRIORITY, KEY_JUMP)
 	--ContextActionService:BindActionAtPriority(ContextActions.RUN, handleRunAction, false, self.CONTROL_PRIORITY, KEY_RUN)
-	RunService:BindToRenderStep(ContextActions.RUN, 100, function() handleRunAction(KEY_RUN) end)
+	RunService:BindToRenderStep(ContextActions.RUN, self.CONTROL_PRIORITY, function() handleRunAction(KEY_RUN) end)
 
 	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_F, function() ContextActionService:UnbindAction(ContextActions.MOVE_F) end)
 	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_B, function() ContextActionService:UnbindAction(ContextActions.MOVE_B) end)

@@ -147,7 +147,12 @@ function Simulation:onCharAdded(character: Model)
     end)
 
     for _, s: Instance in pairs(StarterPlayer.StarterCharacterScripts:GetChildren()) do
-        s.Parent = self.character
+        print(tostring(s.ClassName))
+        if (s.ClassName ~= ("LocalScript" or "Script" or "ModuleScript")) then
+            warn("instance within StarterCharacterScripts is not a script")
+        end
+        local sClone = s:Clone()
+        sClone.Parent = self.character
     end
 
     self:resetSimulation()
