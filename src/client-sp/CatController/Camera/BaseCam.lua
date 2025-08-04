@@ -158,7 +158,7 @@ function BaseCamera:getSubjectCFrame(): CFrame
     -- Should always be a player character
     if (cameraSubject:IsA("Model")) then
         if cameraSubject.PrimaryPart then
-			result = cameraSubject:GetPrimaryPartCFrame() * CFrame.new(HEAD_OFFSET)
+			result = (cameraSubject :: PVInstance):GetPivot() * CFrame.new(HEAD_OFFSET)
 		else
 			result = CFrame.new()
 		end
@@ -246,11 +246,9 @@ function BaseCamera:getSubjectPosition(): Vector3?
 	local cameraSubject = camera and camera.CameraSubject
 
 	if cameraSubject then
-        if cameraSubject:IsA("Model") then
+        if cameraSubject:IsA("Model") and cameraSubject:IsA("PVInstance") then
 			if cameraSubject.PrimaryPart then
-				result = cameraSubject:GetPrimaryPartCFrame().Position
-			else
-				result = cameraSubject:GetModelCFrame().Position
+				result = (cameraSubject :: PVInstance):GetPivot().Position
 			end
 		end
 	else

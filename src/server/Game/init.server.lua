@@ -55,9 +55,9 @@ local function setPlrReplicationFocus(plr: Player)
 end
 
 local function spawnAndSetPlrChar(plr: Player)
-    local playerModel = StarterPlayer:FindFirstChild("PlayerModel") -- TODO: proper PlayerModel selection
-
-	local newCharacter = CharacterDef.createCharacter(playerModel)
+    -- TODO: proper PlayerModel selection
+    local plrMdl = StarterPlayer:FindFirstChild("PlayerModel")
+	local newCharacter = CharacterDef.createCharacter(plrMdl)
 
 	local SelectedSpawn = spawns[math.random(1, #spawns)]
     do
@@ -84,7 +84,7 @@ local function onPlayerRemoving(plr: Player)
     removePlayerCharacter(plr)
 end
 
-local rEventFunctions = {
+local remEventFunctions = {
     [NetApiDef.clientEvents.requestSpawn] = function(plr: Player)
         if (plr.Character) then
             warn(plr.Name.." attempted to spawn with active character")
@@ -98,10 +98,17 @@ local rEventFunctions = {
     end
 }
 
-local rFuncFunctions = {}
+local fastRemEventFunctions = {
+    [NetApiDef.clientFastEvents.cJointsDataSend] = function(plr: Player)
+        -- TODO
+    end
+}
 
-ServApi.implementREvents(rEventFunctions)
-ServApi.implementRFunctions(rFuncFunctions)
+local remFunctionFunctions = {}
+
+ServApi.implementREvents(remEventFunctions)
+ServApi.implementFastREvents(fastRemEventFunctions)
+ServApi.implementRFunctions(remFunctionFunctions)
 
 Players.PlayerAdded:Connect(onPlayerAdded)
 Players.PlayerRemoving:Connect(onPlayerRemoving)

@@ -3,15 +3,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
+local Gobal = require(ReplicatedStorage.Shared.Global)
 local CollisionGroups = require(ReplicatedStorage.Shared.CollisionGroups)
 
-local DEBUG = true
-local DEBUG_DISABLE_CHAR = false
 local DEBUG_COLL_COLOR3 = Color3.fromRGB(0, 0, 255)
 
-local ADD_BUOYANCY_SENSOR = true
-local CREATE_BASE_FORCES = false
-local USE_PLAYERMDL_MASS = false
+local PLAYERMDL_MASS_ENABLED = false
 local MAIN_ROOT_PRIO = 100
 
 -----------------------------------------------------------------------------------------------------------------
@@ -19,7 +16,6 @@ local MAIN_ROOT_PRIO = 100
 
 local PARAMS = {
     ROOT_ATT_NAME = "Root",
-    PHYS_TAG_NAME = "PhysAssemblyPart",
     ROOTPART_SIZE = Vector3.new(0, 0, 0),
     MAINCOLL_SIZE = Vector3.new(1, 2, 2),
     LEGCOLL_SIZE = Vector3.new(2, 2, 2),
@@ -40,13 +36,13 @@ local PARAMS = {
         0, 0, 1
     ),
     PLAYERMODEL_OFFSET_CF = CFrame.new(
-        0, 0.5, 0,
+        0, 0.72, 0,
         1, 0, 0,
         0, 1, 0,
         0, 0, 1
     ),
     PHYS_PROPERTIES = PhysicalProperties.new(
-        2, 0, 0, 100, 100
+        1, 0, 0, 100, 100
     )
 }
 
@@ -106,52 +102,36 @@ local function createCharacter(playerModel: Model?): Model
     character.PrimaryPart = rootPart
     createParentedAttachment("Root", rootPart)
 
-    for _, p: Instance in pairs(character:GetChildren()) do
-        if (p:IsA("BasePart")) then
-            p:AddTag(PARAMS.PHYS_TAG_NAME)
-        end
-    end
-
-    if (DEBUG) then
+    if (Gobal.GAME_PHYS_DEBUG) then
         setMdlTransparency(character, 0.5)
         mainColl.Color = DEBUG_COLL_COLOR3
     end
 
-    if (ADD_BUOYANCY_SENSOR) then
-        local buoyancySensor = Instance.new("BuoyancySensor")
-        buoyancySensor.Parent = mainColl
-    end
-
     -- add PlayerModel
-    if (not playerModel or DEBUG_DISABLE_CHAR) then
-        warn("no PlayerModel set")
-
-        local emptyPlayerModel = Instance.new("Model")
-        emptyPlayerModel.Name = "PlayerModel"
-        emptyPlayerModel.Parent = character
-    else
-        if (not playerModel.PrimaryPart) then
-            error("no PrimaryPart defined for the PlayerModel")
-        end
-
-        local plrMdlClone = playerModel:Clone()
-        local plrMdlPrimPart = plrMdlClone.PrimaryPart
-
-        for _, inst: Instance in pairs(plrMdlClone:GetChildren()) do
-            if (inst:IsA("BasePart")) then
-                inst.Parent = character
-                if (not USE_PLAYERMDL_MASS) then
-                    (inst :: BasePart).Massless = true
-                end
-            end
-            if (inst:IsA("Folder")) then
-                inst.Parent = character
-            end
-        end
-        plrMdlPrimPart.CFrame = rootPart.CFrame * PARAMS.PLAYERMODEL_OFFSET_CF
-        createParentedWeld(rootPart, plrMdlPrimPart)
-        plrMdlClone:Destroy()
+    if (not playerModel) then
+        error("No PlayerModel found", 2)
     end
+    if (not playerModel.PrimaryPart) then
+        error("PlayerModel has no set PrimaryPart", 2)
+    end
+
+    local plrMdlClone = playerModel:Clone()
+    local plrMdlPrimPart = plrMdlClone.PrimaryPart
+
+    for _, inst: Instance in pairs(plrMdlClone:GetChildren()) do
+        if (inst:IsA("BasePart")) then
+            inst.Parent = character
+            if (not PLAYERMDL_MASS_ENABLED) then
+                inst.Massless = true
+            end
+        end
+        if (inst:IsA("Folder") or inst:IsA("Model")) then
+            inst.Parent = character
+        end
+    end
+    plrMdlPrimPart.CFrame = rootPart.CFrame * PARAMS.PLAYERMODEL_OFFSET_CF
+    createParentedWeld(rootPart, plrMdlPrimPart)
+    plrMdlClone:Destroy()
 
     local animController = Instance.new("AnimationController", character)
     Instance.new("Animator", animController)
@@ -161,21 +141,6 @@ local function createCharacter(playerModel: Model?): Model
     end
 
     return character
-end
-
-local function createBaseForces(mdl: Model)
-    local forcesAtt = Instance.new("Attachment")
-    forcesAtt.Name = "BaseForceAtt"
-    forcesAtt.Parent = mdl.PrimaryPart
-    forcesAtt.WorldAxis = Vector3.new(0, 1, 0)
-
-    local aliOri = Instance.new("AlignOrientation")
-    aliOri.Parent = mdl.PrimaryPart
-    aliOri.Mode = Enum.OrientationAlignmentMode.OneAttachment
-    aliOri.AlignType = Enum.AlignType.PrimaryAxisParallel
-    aliOri.ReactionTorqueEnabled, aliOri.RigidityEnabled = true, true
-    aliOri.Attachment0 = forcesAtt
-    aliOri.PrimaryAxis = Vector3.new(0, 1, 0)
 end
 
 -----------------------------------------------------------------------------------------------------------------
@@ -191,15 +156,13 @@ function CharacterDef.new()
     return self
 end
 
+-- must be called on the server
 function CharacterDef.createCharacter(playerModel: Model): Model
     if (not RunService:IsServer()) then
         error("character should be created from server")
     end
 
     local character = createCharacter(playerModel)
-    if (CREATE_BASE_FORCES) then
-        createBaseForces(character)
-    end
     setCollGroup(character)
 
     return character

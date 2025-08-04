@@ -19,6 +19,24 @@ local VEC3_UP = Vector3.new(0, 1 ,0)
 local VEC3_REGION_SIZE = Vector3.new(4, 4, 4)
 local VEC3_REGION_OFFSET = Vector3.new(0, 1 ,0)
 local BOUND_POINTS = math.round(2 * math.sqrt(NUM_RAYS))
+local WATER_OVERLAPPARAMS = OverlapParams.new()
+
+do
+	local function getWaterPartsInWorkspace(): {[number]:Instance}
+		local waterParts = {}
+		for _, v in pairs(Workspace:GetDescendants()) do
+			if (v:IsA("BasePart") and v.CollisionGroup == CollisionGroups.WATER) then
+				v.CanCollide = false
+				table.insert(waterParts, v)
+			end
+		end
+		return waterParts
+	end
+
+	WATER_OVERLAPPARAMS.FilterDescendantsInstances = getWaterPartsInWorkspace()
+	WATER_OVERLAPPARAMS.FilterType = Enum.RaycastFilterType.Include
+	WATER_OVERLAPPARAMS.MaxParts = 10
+end
 
 local function radiusDist(k: number, n: number, b: number)
 	if (k > n-b) then
@@ -71,10 +89,6 @@ local function avgPlaneFromPoints(ptsArr: {Vector3}) : {centroid: Vector3, norma
 	else
 		dir = Vector3.new(xy*yz - xz*yy, xy*xz - yz*xx, det_z)
 	end
-	-- how did I overlook this?
-	if (dir:Dot(VEC3_UP) < 0) then
-		dir = -dir
-	end
 
 	return {
 		centroid = centroid,
@@ -86,20 +100,25 @@ local Phys = {}
 
 export type physData = {
 	grounded: boolean,
+	inWater: boolean,
 	pos: Vector3,
 	normal: Vector3,
 	gndHeight: number,
-	normalAngle: number
+	normalAngle: number,
+	steepness: number
 }
 
 function Phys.colliderCast(
 	rootPos: Vector3,
 	maxRadius: number,
 	hipHeight: number,
+	maxIncline: number,
 	gndClearDist: number,
-	rayParams: RaycastParams
+	rayParams: RaycastParams,
+	buoySensor: BuoyancySensor?
 )
 	local _grounded = false
+	local _inWater = false
 	local targetPos = -VEC3_UP * 9999
     local targetNorm = VEC3_UP
     local pNormAngle = 0
@@ -107,7 +126,38 @@ function Phys.colliderCast(
 	local numHits = 0
 	local adjHipHeight = hipHeight + RAY_Y_OFFSET
 
+	-- terrain water check, use BuoyancySensor if availible
+	if (buoySensor) then
+		_inWater = buoySensor.TouchingSurface or buoySensor.FullySubmerged
+	else
+		local waterDetRegion = Region3.new(
+			rootPos + VEC3_REGION_OFFSET - VEC3_REGION_SIZE,
+			rootPos + VEC3_REGION_OFFSET + VEC3_REGION_SIZE
+		)
+		local regionData = Workspace.Terrain:ReadVoxels(waterDetRegion:ExpandToGrid(4), 4)
+		for i, d1 in ipairs(regionData) do
+			for _, d2 in pairs(d1) do
+				for _, d3 in pairs(d2) do
+					if (d3 == Enum.Material.Water) then
+						_inWater = true; break
+					end
+				end
+			end
+		end
+	end
+
+	-- parts with assigned Water coll group, aka. "custom water"
+	if (REG_WATER_PARTS) then
+		local partsArr = Workspace:GetPartBoundsInRadius(
+			rootPos + VEC3_REGION_OFFSET, 2, WATER_OVERLAPPARAMS
+		)
+		if (#partsArr > 0) then
+			_inWater = true
+		end
+	end
+
 	-- cylinder cast checks
+
 	local hitPointsArr = {} :: {Vector3}
 	local hitNormalsArr = {} :: {Vector3}
 	-- TODO: return a hit BasePart, which is closest to the root part
@@ -176,23 +226,25 @@ function Phys.colliderCast(
 
 	pNormAngle = math.asin((VEC3_UP:Cross(targetNorm)).Magnitude) --math.deg(math.acos(targetNorm:Dot(VEC3_UP)))
 
-	-- local steepness = 0
-	-- local y = targetNorm.Y
-	-- local x = Vector2.new(targetNorm.X, targetNorm.Z).Magnitude
-	-- if math.abs(x) > 0 then
-	-- 	steepness = math.min(1, math.max(0, x/y - TAN_START_THETA) / (TAN_THETA - TAN_START_THETA))
-	-- elseif y < 0 then
-	-- 	steepness = 1
-	-- end
+	local steepness = 0
+	local y = targetNorm.Y
+	local x = Vector2.new(targetNorm.X, targetNorm.Z).Magnitude
+	if math.abs(x) > 0 then
+		steepness = math.min(1, math.max(0, x/y - TAN_START_THETA) / (TAN_THETA - TAN_START_THETA))
+	elseif y < 0 then
+		steepness = 1
+	end
 
 	DebugVisualize.normalPart(targetPos, targetNorm, Vector3.new(0.1,0.1,2))
 	--DebugVisualize.normalPart(avgPos, Vector3.FromAxis(Enum.Axis.Y))
 	return {
         grounded = _grounded,
+        inWater = _inWater,
 		pos = targetPos,
 		normal = targetNorm.Unit,
         gndHeight = targetPos.Y,
-        normalAngle = pNormAngle
+        normalAngle = pNormAngle,
+		steepness = steepness
     } :: physData
 end
 

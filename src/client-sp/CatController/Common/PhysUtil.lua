@@ -38,11 +38,6 @@ end
 
 -- calculate accel based on displacement and current vel of assembly
 function PhysUtil.accelFromDispl(posDiff: number, vel: number, downForce: number, dt: number)
-    --print(posDiff)
-    local fac = 1
-    if (posDiff <= 0.5) then
-        fac = posDiff
-    end
     return downForce + (2*(posDiff - vel*dt))/(dt*dt)
 end
 

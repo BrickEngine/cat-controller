@@ -21,6 +21,7 @@ export type BaseStateType = {
     destroy: (BaseStateType) -> (),
 
     _simulation: SimulationType,
+    id: number,
 
     [string]: any
 }
@@ -32,6 +33,7 @@ function BaseState.new(_simulation)
     local self = setmetatable({}, BaseState) :: BaseStateType
 
     self._simulation = _simulation
+    self.id = -1
 
     return self
 end
