@@ -7,12 +7,11 @@ local CollisionGroups = require(ReplicatedStorage.Shared.CollisionGroups)
 local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
 local InputManager = require(controller.InputManager)
 local BaseState = require(controller.SimStates.BaseState)
---local self.animation = require(controller.Animation)
-local PhysCheck = require(controller.Common.PhysCheck)
+local FloorCheck = require(controller.Common.FloorCheck)
 
 local STATE_ID = 0
 
--- movement
+-- physics
 local GND_WALK_SPEED = 1
 local GND_RUN_SPEED = 2.5
 local GND_CLEAR = 0.5
@@ -38,11 +37,12 @@ local VEC3_ZERO = Vector3.zero
 local VEC3_UP = Vector3.new(0, 1, 0)
 local PI2 = math.pi*2
 
-local ray_params = RaycastParams.new()
-ray_params.CollisionGroup = CollisionGroups.PLAYER
-ray_params.FilterType = Enum.RaycastFilterType.Exclude
-ray_params.IgnoreWater = true
-ray_params.RespectCanCollide = true
+-- local vars
+local ray_params_gnd = RaycastParams.new()
+ray_params_gnd.CollisionGroup = CollisionGroups.PLAYER
+ray_params_gnd.FilterType = Enum.RaycastFilterType.Exclude
+ray_params_gnd.IgnoreWater = true
+ray_params_gnd.RespectCanCollide = true
 
 local jTime = 0
 local jSignal = false
@@ -225,8 +225,8 @@ function Ground:update(dt: number)
     local movingUp: boolean = currVel.Y > 0.1
 
     -- do phys checks
-    local physData: PhysCheck.physData = PhysCheck(
-        currPos, PHYS_RADIUS, HIP_HEIGHT, GND_CLEAR, ray_params
+    local physData: FloorCheck.physData = FloorCheck(
+        currPos, PHYS_RADIUS, HIP_HEIGHT, GND_CLEAR, ray_params_gnd
     )
     self.normal = physData.normal
 

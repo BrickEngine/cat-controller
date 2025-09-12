@@ -9,15 +9,10 @@ local DebugVisualize = require(script.Parent.DebugVisualize)
 local NUM_RAYS = 32
 local RADIUS_OFFSET = 0.05
 local RAY_Y_OFFSET = 0.1
-local REG_WATER_PARTS = false
-
 local PHI = 1.61803398875
-local TAN_THETA = math.tan(math.rad(60))
-local TAN_START_THETA = math.tan(math.rad(60) - math.rad(2.5))
+
 local VEC3_ZERO = Vector3.zero
 local VEC3_UP = Vector3.new(0, 1 ,0)
-local VEC3_REGION_SIZE = Vector3.new(4, 4, 4)
-local VEC3_REGION_OFFSET = Vector3.new(0, 1 ,0)
 local BOUND_POINTS = math.round(2 * math.sqrt(NUM_RAYS))
 
 local function radiusDist(k: number, n: number, b: number)
@@ -130,8 +125,6 @@ function Phys.colliderCast(
 		)
 		if (ray :: RaycastResult) then
 			local debug_gnd_hit = false
-			--local onSlope = ray.Normal:Cross(Vector3.yAxis) ~= VEC3_ZERO
-			--local normAng = math.deg(math.acos(ray.Normal:Dot(Vector3.yAxis)))
 
 			if (ray.Distance <= adjHipHeight + gndClearDist) then
 				numHits += 1
@@ -176,17 +169,8 @@ function Phys.colliderCast(
 
 	pNormAngle = math.asin((VEC3_UP:Cross(targetNorm)).Magnitude) --math.deg(math.acos(targetNorm:Dot(VEC3_UP)))
 
-	-- local steepness = 0
-	-- local y = targetNorm.Y
-	-- local x = Vector2.new(targetNorm.X, targetNorm.Z).Magnitude
-	-- if math.abs(x) > 0 then
-	-- 	steepness = math.min(1, math.max(0, x/y - TAN_START_THETA) / (TAN_THETA - TAN_START_THETA))
-	-- elseif y < 0 then
-	-- 	steepness = 1
-	-- end
-
 	DebugVisualize.normalPart(targetPos, targetNorm, Vector3.new(0.1,0.1,2))
-	--DebugVisualize.normalPart(avgPos, Vector3.FromAxis(Enum.Axis.Y))
+
 	return {
         grounded = _grounded,
 		pos = targetPos,

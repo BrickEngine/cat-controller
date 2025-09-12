@@ -13,7 +13,9 @@ local Ground = require(simStates.Ground) :: BaseState.BaseStateType
 local Water = require(simStates.Water) :: BaseState.BaseStateType
 local Air = require(simStates.Air) :: BaseState.BaseStateType
 
+-- local vars
 local primaryPartListener: RBXScriptConnection
+local state_free = true
 
 local Simulation = {}
 Simulation.__index = Simulation
@@ -47,12 +49,17 @@ function Simulation:update(dt: number)
         warn("missing PrimaryPart of character, skipping simulation update")
         self.simUpdateConn:Disconnect(); return
     end
+    if (not state_free) then
+        return
+    end
 
     self.currentState:update(dt)
     DebugVisualize.step()
 end
 
 function Simulation:transitionState(newState: BaseState.BaseStateType)
+    state_free = false
+
     if (not newState) then
         error("cannot transition to nonexistent state")
     end
@@ -60,6 +67,8 @@ function Simulation:transitionState(newState: BaseState.BaseStateType)
     self.currentState:stateLeave()
     self.currentState = newState
     self.currentState:stateEnter()
+
+    state_free = true
 end
 
 function Simulation:getCurrentStateId(): number
@@ -69,7 +78,7 @@ function Simulation:getCurrentStateId(): number
     return -1
 end
 
-function Simulation:getNormal(): Vector3?
+function Simulation:getNormal(): Vector3
     if (self.currentState and self.currentState.normal) then
         return self.currentState.normal
     end

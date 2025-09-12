@@ -12,7 +12,7 @@ local PLAYERMDL_MASS_ENABLED = false
 local MAIN_ROOT_PRIO = 100
 
 -----------------------------------------------------------------------------------------------------------------
--- Character phys model parameters
+-- character phys model parameters
 
 local PARAMS = {
     ROOT_ATT_NAME = "Root",
@@ -87,6 +87,10 @@ local function createParentedWeld(p0: BasePart, p1: BasePart): WeldConstraint
 end
 
 local function createCharacter(playerModel: Model?): Model
+    if (not RunService:IsServer()) then
+        error("createCharacter should only be called on the server")
+    end
+
     local character = Instance.new("Model")
     local rootPart = createPart("RootPart", PARAMS.ROOTPART_SIZE, PARAMS.ROOTPART_CF, PARAMS.ROOTPART_SHAPE)
     local mainColl = createPart("MainColl", PARAMS.MAINCOLL_SIZE, PARAMS.MAINCOLL_CF, PARAMS.MAINCOLL_SHAPE)
@@ -107,7 +111,7 @@ local function createCharacter(playerModel: Model?): Model
         mainColl.Color = DEBUG_COLL_COLOR3
     end
 
-    -- add PlayerModel
+    -- add playermodel
     if (not playerModel) then
         error("No PlayerModel found", 2)
     end
@@ -133,9 +137,15 @@ local function createCharacter(playerModel: Model?): Model
     createParentedWeld(rootPart, plrMdlPrimPart)
     plrMdlClone:Destroy()
 
+    -- create Animator and AnimationController
     local animController = Instance.new("AnimationController", character)
     Instance.new("Animator", animController)
 
+    -- create universal BuoyancySensor
+    local buoySens = Instance.new("BuoyancySensor", plrMdlPrimPart)
+    buoySens.UpdateType = Enum.SensorUpdateType.OnRead
+
+    -- setup instance streaming
     if (Workspace.StreamingEnabled) then
         character.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
     end

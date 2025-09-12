@@ -216,6 +216,10 @@ function CamUtils.restoreMouseIcon()
 	lastMouseIconOverride = nil
 end
 
+function CamUtils.setMouseIconEnabled(enabled: boolean)
+	UserInputService.MouseIconEnabled = enabled
+end
+
 local savedMouseBehavior: Enum.MouseBehavior = Enum.MouseBehavior.Default
 local lastMouseBehaviorOverride: Enum.MouseBehavior? = nil
 function CamUtils.setMouseBehaviorOverride(value: Enum.MouseBehavior)

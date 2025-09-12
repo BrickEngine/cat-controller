@@ -18,7 +18,8 @@
     "StarterPlayer": {
       "$properties": {
         "DevComputerMovementMode": "Scriptable",
-        "DevTouchMovementMode": "Scriptable"
+        "DevTouchMovementMode": "Scriptable",
+        "EnableMouseLockOption": false
       },
       "StarterCharacterScripts": {
         "$className": "StarterCharacterScripts",

@@ -90,20 +90,6 @@ function ClassicCamera:update(dt)
 			zoom = 0.5
 		end
 
-		if (self:getIsMouseLocked()) then
-			print("LASLA")
-			-- We need to use the right vector of the camera after rotation, not before
-			local newLookCFrame: CFrame = self:calculateNewLookCFrameFromArg(overrideCameraLookVector, rotateInput)
-
-			local offset: Vector3 = self:getMouseLockOffset()
-			local cameraRelativeOffset: Vector3 = offset.X * newLookCFrame.RightVector + offset.Y * newLookCFrame.UpVector + offset.Z * newLookCFrame.LookVector
-
-			--offset can be NAN, NAN, NAN if newLookVector has only y component
-			if Util.IsFiniteVector3(cameraRelativeOffset) then
-				subjectPosition = subjectPosition + cameraRelativeOffset
-			end
-		end
-
 		newCameraFocus = CFrame.new(subjectPosition)
 		local newLookVector = self:calculateNewLookVectorFromArg(overrideCameraLookVector, rotateInput)
 		newCameraCFrame = CFrame.lookAlong(newCameraFocus.Position - (zoom * newLookVector), newLookVector)
