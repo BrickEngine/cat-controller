@@ -1,18 +1,19 @@
--- dynamic animation logic for the playermodel
--- body rotation, foot-planting, head movement
+--[[
+    Dynamic animation logic for the playermodel:
+    body rotation, foot-planting, head movement, etc.
+]]
 
 local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")
-local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Controller = require(Players.LocalPlayer.PlayerScripts:FindFirstChild("CatController"))
+local Controller = require(ReplicatedStorage.Shared.CatController)
 local simulation = Controller:getSimulation()
 
 local CHARACTER_ROOT_NAME = "PMRoot"
 local MAX_SLOPE_ANGLE = math.rad(60)
 local VEC3_ZERO = Vector3.zero
-local VEC3_UP = Vector3.new(0, 1, 0)
 local LERP_DT = 0.1
 
 local JOINT_NAMES = {
@@ -150,7 +151,7 @@ local function update(dt: number)
     -- TODO: footplanting
 end
 
-local updateConn = RunService.PreAnimation:Connect(update)
+local updateConn = RunService.PreSimulation:Connect(update)
 
 character.DescendantRemoving:Connect(function(descendant)
     if (descendant == charRoot) then

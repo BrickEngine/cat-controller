@@ -11,9 +11,7 @@
     },
     "ServerScriptService": {
       "$className": "ServerScriptService",
-      "Server": {
-        "$path": "src/server"
-      }
+      "$path": "src/server"
     },
     "StarterPlayer": {
       "$properties": {
@@ -39,7 +37,9 @@
       "$properties": {
         "StreamingEnabled": true,
         "SignalBehavior": "Deferred",
-        "RejectCharacterDeletions": "Enabled"
+        "PhysicsSteppingMethod": "Fixed",
+        "RejectCharacterDeletions": "Enabled",
+        "UseNewLuauTypeSolver": "Disabled"
       }
     },
     "Lighting": {

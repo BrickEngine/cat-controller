@@ -1,6 +1,6 @@
---!strict
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Workspace = game:GetService("Workspace")
+local PlayerStateId = require(ReplicatedStorage.Shared.Enums.PlayerStateId)
 
 local BaseState = require(script.Parent.BaseState)
 
@@ -8,9 +8,10 @@ local Air = setmetatable({}, BaseState)
 Air.__index = Air
 
 function Air.new(...)
-    local self = setmetatable(BaseState.new(...) :: BaseState.BaseStateType, Air)
+    local self = BaseState.new(...) :: BaseState.BaseState
+    self.id = PlayerStateId.NONE
 
-    return self :: BaseState.BaseStateType
+    return setmetatable(self, Air)
 end
 
 function Air:enterState()

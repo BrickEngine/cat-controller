@@ -26,7 +26,7 @@ local BaseMoveInput = {}
 BaseMoveInput.__index = BaseMoveInput
 
 function BaseMoveInput.new()
-    local self = setmetatable({}, BaseMoveInput) :: BaseInputType
+    local self = setmetatable({} :: any, BaseMoveInput) :: BaseInputType
 
     self._connectionUtil = ConnectionUtil.new()
 
@@ -42,11 +42,11 @@ function BaseMoveInput:getMoveVec(): Vector3
     return self.moveVec
 end
 
-function BaseMoveInput:getIsJumping(): boolean
+function BaseMoveInput:getJumpKeyDown(): boolean
     return self.isJumping
 end
 
-function BaseMoveInput:getIsRunning(): boolean
+function BaseMoveInput:getRunKeyDown(): boolean
     return self.isRunning
 end
 
