@@ -3,63 +3,69 @@ local SoundService = game:GetService("SoundService")
 local Workspace = game:GetService("Workspace")
 
 local controller = script.Parent.Parent
-local CollisionGroups = require(ReplicatedStorage.Shared.CollisionGroups)
 local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
+local PlayerStateId = require(ReplicatedStorage.Shared.Enums.PlayerStateId)
 local InputManager = require(controller.InputManager)
 local BaseState = require(controller.SimStates.BaseState)
---local self.animation = require(controller.Animation)
 local PhysCheck = require(controller.Common.PhysCheck)
 
-local STATE_ID = 0
-
--- movement
+-- physics
 local GND_WALK_SPEED = 1
 local GND_RUN_SPEED = 2.5
 local GND_CLEAR = 0.5
 local MAX_INCLINE = math.rad(70) -- rad
 local JUMP_HEIGHT = 6 -- studs
-local JUMP_TIME = 0.3
+local JUMP_DELAY = 0.28
 local MOVE_DAMP = 5
-local PHYS_DT = 0.05
+local MOVE_DT = 0.05
 local ROT_DT = 0.25 -- lower value ~ slower rotation
 
 -- animation speeds / threshold
 local ANIM_TH_WALK = 0.1 -- studs/s
 local ANIM_TH_TROT = 15 -- studs/s
 local ANIM_TH_RUN = 22 -- studs/s
-local ANIM_SPEED_FAC_CROUCH = 1
 local ANIM_SPEED_FAC_WALK = 0.3
-local ANIM_SPEED_FAC_TROT = 1
 local ANIM_SPEED_FAC_RUN = 0.08
 
+-- misc
+local DO_QUAKE_JUMP_SOUND = true
+
+-- constants
 local PHYS_RADIUS = CharacterDef.PARAMS.LEGCOLL_SIZE.Z * 0.5
 local HIP_HEIGHT = CharacterDef.PARAMS.LEGCOLL_SIZE.X
 local VEC3_ZERO = Vector3.zero
 local VEC3_UP = Vector3.new(0, 1, 0)
 local PI2 = math.pi*2
 
-local ray_params = RaycastParams.new()
-ray_params.CollisionGroup = CollisionGroups.PLAYER
-ray_params.FilterType = Enum.RaycastFilterType.Exclude
-ray_params.IgnoreWater = true
-ray_params.RespectCanCollide = true
+-- local vars
+-- local ray_params_gnd = RaycastParams.new()
+-- ray_params_gnd.CollisionGroup = CollisionGroup.PLAYER
+-- ray_params_gnd.FilterType = Enum.RaycastFilterType.Exclude
+-- ray_params_gnd.IgnoreWater = true
+-- ray_params_gnd.RespectCanCollide = true
 
-local jTime = 0
-local jSignal = false
+local lastTargetAng = 0
+local j_lastDown = false
+local j_Delay = 0
+local lastYPos = 0
+local jumped = false
+local jumpSignal = false
 
+-- Create required physics constraints
 local function createForces(mdl: Model): {[string]: Instance}
-    local att = Instance.new("Attachment")
-    att.Name = "Ground"
-    att.Parent = mdl.PrimaryPart
+    assert(mdl.PrimaryPart)
 
-    local moveForce = Instance.new("VectorForce")
+    local att = Instance.new("Attachment", mdl.PrimaryPart)
+    att.Name = "Ground"
+
+    local moveForce = Instance.new("VectorForce", mdl.PrimaryPart)
     moveForce.Enabled = false
     moveForce.Attachment0 = att
     moveForce.ApplyAtCenterOfMass = true
     moveForce.RelativeTo = Enum.ActuatorRelativeTo.World
-    moveForce.Parent = mdl.PrimaryPart
+    moveForce.Force = VEC3_ZERO
 
-    local rotForce = Instance.new("AlignOrientation")
+    local rotForce = Instance.new("AlignOrientation", mdl.PrimaryPart)
     rotForce.Enabled = false
     rotForce.Mode = Enum.OrientationAlignmentMode.OneAttachment
     rotForce.Attachment0 = att
@@ -67,25 +73,23 @@ local function createForces(mdl: Model): {[string]: Instance}
     rotForce.Responsiveness = 200
     rotForce.MaxTorque = 200000000
     rotForce.MaxAngularVelocity = math.huge
-    rotForce.Parent = mdl.PrimaryPart
 
-    local posForce = Instance.new("AlignPosition")
+    local posForce = Instance.new("AlignPosition", mdl.PrimaryPart)
     posForce.Enabled = false
     posForce.Attachment0 = att
     posForce.Mode = Enum.PositionAlignmentMode.OneAttachment
     posForce.ForceLimitMode = Enum.ForceLimitMode.PerAxis
-    posForce.MaxAxesForce = Vector3.zero
-    posForce.MaxVelocity = 100000
-    posForce.Responsiveness = 200
+    posForce.MaxAxesForce = VEC3_ZERO
+    posForce.MaxVelocity = 150
+    posForce.Responsiveness = 195
     posForce.ForceRelativeTo = Enum.ActuatorRelativeTo.World
     posForce.Position = mdl.PrimaryPart.CFrame.Position
-    posForce.Parent = mdl.PrimaryPart
 
     return {
         moveForce = moveForce,
         rotForce = rotForce,
         posForce = posForce,
-    }
+    } :: {[string]: Instance}
 end
 
 local function getCFrameRelMoveVec(camCFrame: CFrame): Vector3
@@ -95,19 +99,6 @@ local function getCFrameRelMoveVec(camCFrame: CFrame): Vector3
             camCFrame.LookVector.X, 0, camCFrame.LookVector.Z
         ).Unit
     ):VectorToWorldSpace(InputManager:getMoveVec())
-end
-
-local function makeCFrame(up, look)
-	local upu = up.Unit
-	local ru = upu:Cross((-look).Unit).Unit
-	-- orthonormalize, keeping up vector
-	local looku = -upu:Cross(ru).Unit
-	return CFrame.new(
-        0, 0, 0,
-        ru.x, upu.x, looku.x,
-        ru.y, upu.y, looku.y,
-        ru.z, upu.z, looku.z
-    )
 end
 
 local function projectOnPlaneVec3(v: Vector3, norm: Vector3)
@@ -124,7 +115,7 @@ local function projectOnPlaneVec3(v: Vector3, norm: Vector3)
 end
 
 local function calcWalkAccel(moveVec: Vector3, rootPos: Vector3, currVel: Vector3, normal: Vector3, dt: number): Vector3
-    local isRunning = InputManager:getIsRunning()
+    local isRunning = InputManager:getRunKeyDown()
     --local adjMoveVec = projectOnPlaneVec3(moveVec, normal)
     local target
     if (isRunning) then
@@ -155,49 +146,33 @@ local function lerpAngle(a0: number, a1: number, t: number): number
 	return a0 + angleShortest(a0, a1)*t
 end
 
-local function jumpSignal()
-	if (InputManager:getIsJumping()) then
-		if (not jSignal) then
-			jSignal = true
-			return true
-		end
-	else
-		jSignal = false
-	end
-	return false
-end
-
-local function decrementCounter(count: number, dt: number): number
-    count -= dt
-    if (count < 0) then count = 0 end
-    return count
-end
-
----------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------
+-- Module
+------------------------------------------------------------------------------------------------------------------------
 
 local Ground = setmetatable({}, BaseState)
 Ground.__index = Ground
 
 function Ground.new(...)
-    local self = setmetatable(BaseState.new(...) :: BaseState.BaseStateType, Ground) :: any
+    local self = BaseState.new(...) :: BaseState.BaseState
 
-    self.id = STATE_ID
+    self.id = PlayerStateId.GROUNDED
+
     self.character = self._simulation.character :: Model
     self.forces = createForces(self.character)
-    self.normal =  VEC3_UP
 
     self.animation = self._simulation.animation
 
-    return self
+    return setmetatable(self, Ground)
 end
 
 function Ground:stateEnter()
     if (not self.forces) then
-        return
+        warn("No forces to enable in state: 'Ground'"); return
     end
-    for _, f: Instance in self.forces do
-        f.Enabled = true
-    end
+    self.forces.moveForce.Enabled = true
+    self.forces.rotForce.Enabled = true
+
     self.animation:setState("Idle")
 end
 
@@ -205,42 +180,114 @@ function Ground:stateLeave()
     if (not self.forces) then
         return
     end
-    for _, f: Instance in self.forces do
+    for _, f: Constraint in self.forces do
         f.Enabled = false
     end
 end
 
-local lastTargetAng = 0
-local lastYPos = 0
-local jumped = false
+-- Handles jump input and configures posForce
+function Ground:updateJump(dt: number, override: boolean?)
+    -- manage input cooldown for the jump action
+    local function updateJumpTime()
+        if (InputManager:getJumpKeyDown()) then
+            if (not j_lastDown and j_Delay <= 0) then
+                j_lastDown = true
+                j_Delay = JUMP_DELAY
+                jumpSignal = true
+                return
+            end
+        else
+            j_lastDown = false
+        end
+
+        j_Delay = math.max(j_Delay - dt, 0)
+        jumpSignal = false
+    end
+
+    updateJumpTime()
+
+    local primaryPart: BasePart = self.character.PrimaryPart
+    local currRootPos = primaryPart.CFrame.Position
+
+    if (self.grounded) then
+        if ((j_Delay <= 0) or
+            (jumped and currRootPos.Y < lastYPos)
+        ) then
+            self.forces.posForce.Enabled = true
+            jumped = false
+        end
+
+        -- execute jump
+        if (jumpSignal or override) then
+            if (DO_QUAKE_JUMP_SOUND) then
+                local s = Instance.new("Sound")
+                s.SoundId = "rbxassetid://5466166437"
+                SoundService:PlayLocalSound(s)
+                s:Destroy()
+            end
+
+            self.forces.posForce.Enabled = false
+
+            local jumpInitVel: number = math.sqrt(Workspace.Gravity * 2 * JUMP_HEIGHT)
+            primaryPart:ApplyImpulse(
+                VEC3_UP * (jumpInitVel - primaryPart.AssemblyLinearVelocity.Y) * primaryPart.AssemblyMass)
+            jumped = true
+        end
+    end
+
+    lastYPos = currRootPos.Y
+end
+
+-- Updates horizontal movement force
+function Ground:updateMove(dt: number, moveDirVec: Vector3, normal: Vector3, normalAngle: number)
+    local primaryPart: BasePart = self.character.PrimaryPart
+    local currVel = primaryPart.AssemblyLinearVelocity
+    local currPos = primaryPart.CFrame.Position
+    local mass = primaryPart.AssemblyMass
+    local currHoriVel = Vector3.new(currVel.X, 0, currVel.Z)
+
+    local accelVec = calcWalkAccel(
+        moveDirVec, currPos, currHoriVel, normal, MOVE_DT
+    )
+    if (normalAngle > MAX_INCLINE) then
+        accelVec = projectOnPlaneVec3(accelVec * 0.1, normal)
+    end
+
+    self.forces.moveForce.Force = accelVec * mass
+
+    if (not self.grounded) then
+        self.forces.moveForce.Force *= 0.1
+    end
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- Ground update
+------------------------------------------------------------------------------------------------------------------------
 
 function Ground:update(dt: number)
     local primaryPart: BasePart = self.character.PrimaryPart
     local camCFrame: CFrame = Workspace.CurrentCamera.CFrame
     local currVel: Vector3 = primaryPart.AssemblyLinearVelocity
     local currPos: Vector3 = primaryPart.CFrame.Position
-    local g = Workspace.Gravity
-    local gravityVec: Vector3 = Vector3.new(0, g, 0)
+    local grav = Workspace.Gravity
     local mass: number = primaryPart.AssemblyMass
-    local movingUp: boolean = currVel.Y > 0.1
 
     -- do phys checks
-    local physData: PhysCheck.physData = PhysCheck(
-        currPos, PHYS_RADIUS, HIP_HEIGHT, GND_CLEAR, ray_params
+    local groundData: PhysCheck.groundData = PhysCheck.checkFloor(
+        currPos, PHYS_RADIUS, HIP_HEIGHT, GND_CLEAR
     )
-    self.normal = physData.normal
+    self.normal = groundData.normal
+    self.grounded = groundData.grounded
 
-    if (physData.inWater) then
-        self._simulation:transitionState(self._simulation.states.Water)
-    end
+    -- TODO: handle water state switching
+    -- if (physData.inWater) then
+    --     self._simulation:transitionState(self._simulation.states.Water)
+    -- end
 
     local moveDirVec = getCFrameRelMoveVec(camCFrame)
     local currHoriVel = Vector3.new(currVel.X, 0, currVel.Z)
-    local accelVec, isRunning = calcWalkAccel(
-        moveDirVec, currPos, currHoriVel, physData.normal, PHYS_DT
-    )
 
-    -- primaryPart rotation based on vecForce direction and ground normal
+    -- PrimaryPart rotation based on vecForce direction and ground normal
     local lookVec = primaryPart.CFrame.LookVector
     if (currHoriVel.Magnitude > 0.1) then
         local currAng = math.atan2(lookVec.Z, lookVec.X)
@@ -255,14 +302,27 @@ function Ground:update(dt: number)
             targetAng = lerpAngle(currAng, targetAng, ROT_DT)
         end
 
-        -- self.forces.rotForce.CFrame = makeCFrame(
-        --     VEC3_UP, Vector3.new(math.cos(targetAng), 0, math.sin(targetAng))
-        -- )
         self.forces.rotForce.CFrame = CFrame.lookAlong(
             VEC3_ZERO, Vector3.new(math.cos(targetAng), 0, math.sin(targetAng))
         )
 
         lastTargetAng = targetAng
+    end
+
+    -- update horizonal movement
+    self:updateMove(dt, moveDirVec, groundData.normal, groundData.normalAngle)
+
+    -- manage posForce
+    if (self.grounded) then
+        local targetPosY = groundData.gndHeight + HIP_HEIGHT
+
+        -- scale force with cubed vertical velocity to compensate for high falls
+        self.forces.posForce.MaxAxesForce = mass * (grav * 20 + currVel.Y * currVel.Y) * VEC3_UP
+        self.forces.posForce.Position = Vector3.new(0, targetPosY, 0)
+
+        self:updateJump(dt)
+    else
+        self.forces.posForce.Enabled = false
     end
 
     -- update animation
@@ -279,53 +339,6 @@ function Ground:update(dt: number)
         self.animation:setState("Idle")
         self.animation:adjustSpeed(1)
     end
-
-    if (physData.grounded) then
-        local targetPosY = physData.gndHeight + HIP_HEIGHT
-        local onIncline = false
-
-        self.forces.posForce.Position = Vector3.new(0, targetPosY, 0)
-        self.forces.posForce.MaxAxesForce = VEC3_UP * g * mass * 20
-
-        if (physData.normalAngle > MAX_INCLINE) then
-            self.forces.moveForce.Force = projectOnPlaneVec3(accelVec * 0.1, physData.normal) * mass
-            self.forces.posForce.Enabled = false
-            onIncline = true
-        else
-            self.forces.moveForce.Force = accelVec * mass
-        end
-
-        -- handle jumping
-        if (not onIncline) then
-            if (jTime <= 0 or (jumped and currPos.Y < lastYPos)) then
-                self.forces.posForce.Enabled = true
-                jumped = false
-            end
-
-            if (jumpSignal() and jTime <= 0) then
-                -- temp sound for fun
-                do
-                    local s = Instance.new("Sound")
-                    s.SoundId = "rbxassetid://5466166437"
-                    SoundService:PlayLocalSound(s)
-                    s:Destroy()
-                end
-
-                self.forces.posForce.Enabled = false
-
-                local jumpInitVel: number = math.sqrt(Workspace.Gravity * 2 * JUMP_HEIGHT)
-                primaryPart:ApplyImpulse(VEC3_UP * (jumpInitVel - currVel.Y) * mass)
-                jTime = JUMP_TIME
-                jumped = true
-            end
-        end
-    else
-        self.forces.moveForce.Force = accelVec * mass * 0.1
-        self.forces.posForce.Enabled = false
-    end
-
-    jTime = decrementCounter(jTime, dt)
-    lastYPos = currPos.Y
 end
 
 function Ground:destroy()

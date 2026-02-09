@@ -1,6 +1,10 @@
-local GLOBAL_VARS = {
-    GAME_PHYS_DEBUG = false,
-    GAME_UI_DEBUG = false
-}
+-- Global constants for client and server side modules.
 
-return GLOBAL_VARS
+return table.freeze({
+    GAME_PHYS_DEBUG = true,
+    GAME_CHAR_DEBUG = true,
+    GAME_UI_DEBUG = false,
+    PRINT_SIM_DEBUG = true,
+
+    PLAYERS_INST_FOLDER_NAME = "PlayerInstContainer",
+})

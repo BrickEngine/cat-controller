@@ -43,6 +43,7 @@ local CamUtils = require(script.CamUtils)
 local CamInput = require(script.CamInput)
 local ClassicCam = require(script.ClassicCam)
 local Occlusion = require(script.Occlusion)
+local MouseLockController = require(script.MouseLockController)
 
 local instantiatedCameraControllers = {}
 local instantiatedOcclusionModules = {}
@@ -60,19 +61,31 @@ function CameraModule.new()
 	-- Current active controller instances
 	self.activeCameraController = nil
 	self.activeOcclusionModule = nil
+	self.activeMouseLockController = nil
 
 	-- Connections to events
 	self.cameraSubjectChangedConn = nil
 
-	-- Adds CharacterAdded and CharacterRemoving event handlers for all current players
+	-- Add CharacterAdded and CharacterRemoving event handlers for all current players
 	for _,player in pairs(Players:GetPlayers()) do
 		self:onPlayerAdded(player)
 	end
 
-	-- Adds CharacterAdded and CharacterRemoving event handlers for all players who join in the future
+	-- Add CharacterAdded and CharacterRemoving event handlers for all players who join in the future
 	Players.PlayerAdded:Connect(function(player)
 		self:onPlayerAdded(player)
 	end)
+
+	-- Init mouse lock controller
+	self.activeMouseLockController = MouseLockController.new()
+	assert(self.activeMouseLockController, "Strict typing check")
+
+	local toggleEvent = self.activeMouseLockController:getBindableToggleEvent()
+	if toggleEvent then
+		toggleEvent:Connect(function()
+			self:onMouseLockToggled()
+		end)
+	end
 
 	self:activateCameraController()
 	self:activateOcclusionModule()
@@ -288,11 +301,9 @@ end
 
 function CameraModule:onMouseLockToggled()
 	if self.activeMouseLockController then
-		local mouseLocked = self.activeMouseLockController:GetIsMouseLocked()
-		local mouseLockOffset = self.activeMouseLockController:GetMouseLockOffset()
+		local mouseLocked = self.activeMouseLockController:getIsMouseLocked()
 		if self.activeCameraController then
-			self.activeCameraController:SetIsMouseLocked(mouseLocked)
-			self.activeCameraController:SetMouseLockOffset(mouseLockOffset)
+			self.activeCameraController:setIsMouseLocked(mouseLocked)
 		end
 	end
 end

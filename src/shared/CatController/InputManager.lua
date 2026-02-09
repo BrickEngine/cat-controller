@@ -12,21 +12,6 @@ local ACTION_PRIO = 100
 local NORMALIZE_INPUT = true
 local VEC3_ZERO = Vector3.zero
 
-local MOVEMENT_MODE_MAP = {
-	[Enum.TouchMovementMode.DPad] = MoveTouch,
-	[Enum.DevTouchMovementMode.DPad] = MoveTouch,
-	[Enum.TouchMovementMode.Thumbpad] = MoveTouch,
-	[Enum.DevTouchMovementMode.Thumbpad] = MoveTouch,
-	[Enum.TouchMovementMode.Thumbstick] = MoveTouch,
-	[Enum.DevTouchMovementMode.Thumbstick] = MoveTouch,
-	[Enum.TouchMovementMode.DynamicThumbstick] = MoveTouch,
-	[Enum.DevTouchMovementMode.DynamicThumbstick] = MoveTouch,
-	[Enum.TouchMovementMode.Default] = MoveTouch,
-	[Enum.ComputerMovementMode.Default] = MoveKeyboard,
-	[Enum.ComputerMovementMode.KeyboardMouse] = MoveKeyboard,
-	[Enum.DevComputerMovementMode.KeyboardMouse] = MoveKeyboard,
-	[Enum.DevComputerMovementMode.Scriptable] = nil
-}
 local PC_INPUT_TYPE_MAP = {
 	[Enum.UserInputType.Keyboard] = MoveKeyboard,
 	[Enum.UserInputType.MouseButton1] = MoveKeyboard,
@@ -106,18 +91,18 @@ function InputManager:getMoveVec(): Vector3
     end
 end
 
-function InputManager:getIsJumping(): boolean
+function InputManager:getJumpKeyDown(): boolean
     if (not self.activeInputController) then
         return false
     end
-    return self.activeInputController:getIsJumping()
+    return self.activeInputController:getJumpKeyDown()
 end
 
-function InputManager:getIsRunning(): boolean
+function InputManager:getRunKeyDown(): boolean
     if (not self.activeInputController) then
         return false
     end
-    return self.activeInputController:getIsRunning()
+    return self.activeInputController:getRunKeyDown()
 end
 
 function InputManager:getActiveInputController(): ({}?)
@@ -155,7 +140,7 @@ function InputManager:switchInputController(inpModule: {}?)
     end
 
     if (not self.inputControllers[inpModule]) then
-        self.inputControllers[inpModule] = inpModule.new(ACTION_PRIO)
+        self.inputControllers[inpModule] = (inpModule :: any).new(ACTION_PRIO)
     end
 
     if (self.activeInputController ~= self.inputControllers[inpModule]) then
