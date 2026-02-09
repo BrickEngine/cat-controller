@@ -12,7 +12,7 @@ local Controller = require(ReplicatedStorage.Shared.CatController)
 local simulation = Controller:getSimulation()
 
 local CHARACTER_ROOT_NAME = "PMRoot"
-local MAX_SLOPE_ANGLE = math.rad(60)
+local MAX_SLOPE_ANGLE = math.rad(30)
 local VEC3_ZERO = Vector3.zero
 local LERP_DT = 0.1
 
@@ -110,7 +110,7 @@ local function update(dt: number)
                 (rootLookVec:Cross(crossDirVec)):Dot(rootRightVec),
                 rootLookVec:Dot(crossDirVec)
             )
-            diffAngle = math.min(diffAngle, MAX_SLOPE_ANGLE)
+            diffAngle = math.clamp(diffAngle, -MAX_SLOPE_ANGLE, MAX_SLOPE_ANGLE)
             local newRootCF = baseJointOffsets.root_c0 * CFrame.Angles(diffAngle, 0, 0)
 
 
