@@ -7,24 +7,23 @@
 --]]
 local NetApi = {
 
-    CONTAINER_NAME = "NetworkContainer",
-    -- refs to network objects
-    container = {},
+    FOLDER_NAME = "NetworkInstContainer",
 
     -- client -> server
     clientEvents = {
         requestSpawn = "RequestSpawn",
-        requestDespawn = "RequestDespawn"
+        requestDespawn = "RequestDespawn",
+        requestSound = "RequestSound"
     },
     clientFastEvents = {
-        cJointsDataSend = "CJointsDataSend"
+        jointsDataToServer = "JointsDataToServer"
     },
     -- server -> client
     serverEvents = {
-
+        playSound = "PlaySound",
     },
     serverFastEvents = {
-        CJointsDataReceive = "CJointsDataReceive"
+        jointsDataToClient = "JointsDataToClient"
     },
     -- client -> server -> client
     remoteFunctions = {

@@ -89,7 +89,10 @@ local function onPlayerRemoving(plr: Player)
     removePlayerCharacter(plr)
 end
 
--- Network events management
+------------------------------------------------------------------------------------------------------------------------
+-- Network implementation
+------------------------------------------------------------------------------------------------------------------------
+
 local remEventFunctions = {
     [Network.clientEvents.requestSpawn] = function(plr: Player)
         if (plr.Character) then
@@ -98,16 +101,21 @@ local remEventFunctions = {
         end
         spawnAndSetPlrChar(plr)
     end,
+
     [Network.clientEvents.requestDespawn] = function(plr: Player)
         removePlayerCharacter(plr)
         -- TODO
-    end
+    end,
+
+    [Network.clientEvents.requestSound] = function(plr: Player)
+        -- TODO
+    end,
 }
 
 local fastRemEventFunctions = {
-    [Network.clientFastEvents.cJointsDataSend] = function(plr: Player)
+    [Network.clientFastEvents.jointsDataToServer] = function(plr: Player)
         -- TODO
-    end
+    end,
 }
 
 local remFunctionFunctions = {}

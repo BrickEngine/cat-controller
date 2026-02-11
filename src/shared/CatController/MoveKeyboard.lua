@@ -1,12 +1,12 @@
-local Players = game:GetService("Players")
 -- Keyboard controls
 
 local ContextActionService = game:GetService("ContextActionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
 local BaseInput = require(script.Parent.BaseInput)
-local ContextActions = require(script.Parent.ContextActions)
+local ContextAction = require(ReplicatedStorage.Shared.Enums.ContextAction)
 
 local VEC3_ZERO = Vector3.zero
 local KEY_W = Enum.KeyCode.W
@@ -98,21 +98,21 @@ function MoveKeyboard:bindActions()
 		self:updateRun()
 	end
 
-	ContextActionService:BindActionAtPriority(ContextActions.MOVE_F, handleMoveForward, false, self.CONTROL_PRIORITY, KEY_W, KEY_UP)
-	ContextActionService:BindActionAtPriority(ContextActions.MOVE_B, handleMoveBackward, false, self.CONTROL_PRIORITY, KEY_S, KEY_DOWN)
-	ContextActionService:BindActionAtPriority(ContextActions.MOVE_L, handleMoveLeft, false, self.CONTROL_PRIORITY, KEY_A)
-	ContextActionService:BindActionAtPriority(ContextActions.MOVE_R, handleMoveRight, false, self.CONTROL_PRIORITY, KEY_D)
-	ContextActionService:BindActionAtPriority(ContextActions.JUMP, handleJumpAction, false, self.CONTROL_PRIORITY, KEY_JUMP)
+	ContextActionService:BindActionAtPriority(ContextAction.MOVE_F, handleMoveForward, false, self.CONTROL_PRIORITY, KEY_W, KEY_UP)
+	ContextActionService:BindActionAtPriority(ContextAction.MOVE_B, handleMoveBackward, false, self.CONTROL_PRIORITY, KEY_S, KEY_DOWN)
+	ContextActionService:BindActionAtPriority(ContextAction.MOVE_L, handleMoveLeft, false, self.CONTROL_PRIORITY, KEY_A)
+	ContextActionService:BindActionAtPriority(ContextAction.MOVE_R, handleMoveRight, false, self.CONTROL_PRIORITY, KEY_D)
+	ContextActionService:BindActionAtPriority(ContextAction.JUMP, handleJumpAction, false, self.CONTROL_PRIORITY, KEY_JUMP)
 	--ContextActionService:BindActionAtPriority(ContextActions.RUN, handleRunAction, false, self.CONTROL_PRIORITY, KEY_RUN)
-	RunService:BindToRenderStep(ContextActions.RUN, self.CONTROL_PRIORITY, function() handleRunAction(KEY_RUN) end)
+	RunService:BindToRenderStep(ContextAction.RUN, self.CONTROL_PRIORITY, function() handleRunAction(KEY_RUN) end)
 
-	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_F, function() ContextActionService:UnbindAction(ContextActions.MOVE_F) end)
-	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_B, function() ContextActionService:UnbindAction(ContextActions.MOVE_B) end)
-	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_L, function() ContextActionService:UnbindAction(ContextActions.MOVE_L) end)
-	self._connectionUtil:trackBoundFunction(ContextActions.MOVE_R, function() ContextActionService:UnbindAction(ContextActions.MOVE_R) end)
-	self._connectionUtil:trackBoundFunction(ContextActions.JUMP, function() ContextActionService:UnbindAction(ContextActions.JUMP) end)
+	self._connectionUtil:trackBoundFunction(ContextAction.MOVE_F, function() ContextActionService:UnbindAction(ContextAction.MOVE_F) end)
+	self._connectionUtil:trackBoundFunction(ContextAction.MOVE_B, function() ContextActionService:UnbindAction(ContextAction.MOVE_B) end)
+	self._connectionUtil:trackBoundFunction(ContextAction.MOVE_L, function() ContextActionService:UnbindAction(ContextAction.MOVE_L) end)
+	self._connectionUtil:trackBoundFunction(ContextAction.MOVE_R, function() ContextActionService:UnbindAction(ContextAction.MOVE_R) end)
+	self._connectionUtil:trackBoundFunction(ContextAction.JUMP, function() ContextActionService:UnbindAction(ContextAction.JUMP) end)
 	--self._connectionUtil:trackBoundFunction(ContextActions.RUN, function() ContextActionService:UnbindAction(ContextActions.RUN) end)
-	self._connectionUtil:trackBoundFunction(ContextActions.RUN, function() RunService:UnbindFromRenderStep(ContextActions.RUN) end)
+	self._connectionUtil:trackBoundFunction(ContextAction.RUN, function() RunService:UnbindFromRenderStep(ContextAction.RUN) end)
 end
 
 function MoveKeyboard:connectFocusEventListeners()

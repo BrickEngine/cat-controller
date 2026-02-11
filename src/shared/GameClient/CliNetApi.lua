@@ -1,8 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Network = require(script.Parent)
+local Network = require(ReplicatedStorage.Shared.Network)
 
-local netObjectsContainer = ReplicatedStorage:WaitForChild(Network.CONTAINER_NAME)
+local netObjectsContainer = ReplicatedStorage:WaitForChild(Network.FOLDER_NAME)
 
 local CliApi = {}
 

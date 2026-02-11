@@ -3,15 +3,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Network = require(ReplicatedStorage.Shared.Network)
 
 -- Create the folder for storing network objects, if it does not exist
-local netContainer = ReplicatedStorage:FindFirstChild(Network.CONTAINER_NAME)
+local netContainer = ReplicatedStorage:FindFirstChild(Network.FOLDER_NAME)
 if (not netContainer) then
     netContainer = Instance.new("Folder", ReplicatedStorage)
-    netContainer.Name = Network.CONTAINER_NAME
+    netContainer.Name = Network.FOLDER_NAME
 end
 
 local function addApiObject(obj: Instance)
     obj.Parent = netContainer
-    Network.container[obj.Name] = obj
 end
 
 local ServApi = {}
@@ -69,9 +68,7 @@ function ServApi.implementRFunctions(tbl: any)
     end
 end
 
---[[
-    Connects functions to RemoteEvents
-]]
+-- Connects functions to RemoteEvents
 function ServApi.setConnection(name: string, func: any)
     assert(Network[name], "Missing definition of: "..name)
 

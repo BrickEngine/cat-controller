@@ -2,23 +2,23 @@ local Players = game:GetService("Players")
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
-local BaseInput = require(script.Parent:WaitForChild("BaseInput"))
-local ContextActions = require(script.Parent.ContextActions)
+local BaseInput = require(script.Parent.BaseInput)
+local ContextAction = require(ReplicatedStorage.Shared.Enums.ContextAction)
 
 local VEC3_ZERO = Vector3.zero
 local VEC2_JUMP_BTN_RECT_OFFS = Vector2.new(1, 146)
-local VEC2_RUN_BTN_RECT_OFFS = Vector2.zero
 local VEC2_DEFAULT_BTN_RECT_SIZE = Vector2.new(144, 144)
 
 local TOUCH_CONTROLS_SHEET = "rbxasset://textures/ui/Input/TouchControlsSheetV2.png"
 
-local DYNAMIC_THUMBSTICK_ACTION_NAME = ContextActions.MOVE_THUMBSTICK
-local JUMP_BUTTON_ACTION_NAME = ContextActions.JUMP_BUTTON
-local RUN_BUTTON_ACTION_NAME = ContextActions.RUN_BUTTON
-local MENU_OPEN_ACTION_NAME = ContextActions.MENU
+local DYNAMIC_THUMBSTICK_ACTION_NAME = ContextAction.MOVE_THUMBSTICK
+local JUMP_BUTTON_ACTION_NAME = ContextAction.JUMP_BUTTON
+local RUN_BUTTON_ACTION_NAME = ContextAction.RUN_BUTTON
+local MENU_OPEN_ACTION_NAME = ContextAction.MENU
 local BTN_ACTION_PRIO = Enum.ContextActionPriority.High.Value
 
 local MIDDLE_TRANSPARENCIES = {
@@ -373,6 +373,7 @@ function MoveTouch:BindContextActions()
 		elseif inputState == Enum.UserInputState.Cancel then
 			self:onInputEnded()
 		end
+        return Enum.ContextActionResult.Sink
 	end
 
 	ContextActionService:BindActionAtPriority(

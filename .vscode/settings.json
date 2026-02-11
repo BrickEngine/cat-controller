@@ -1,3 +1,4 @@
 {
-    "luau-lsp.plugin.port": 3668
+    "luau-lsp.plugin.port": 3668,
+    "luau-lsp.plugin.enabled": true
 }

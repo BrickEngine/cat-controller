@@ -9,7 +9,7 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
 local Network = require(ReplicatedStorage.Shared.Network)
-local CliApi = require(ReplicatedStorage.Shared.Network.CliNetApi)
+local CliApi = require(script.CliNetApi)
 
 -- Init Controller singleton
 require(ReplicatedStorage.Shared.CatController)
