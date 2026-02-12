@@ -2,6 +2,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Network = require(ReplicatedStorage.Shared.Network)
 
+local DEBUG_EVENTS = true
+local DEBUG_FAST_EVENTS = true
+
 -- Create the folder for storing network objects, if it does not exist
 local netContainer = ReplicatedStorage:FindFirstChild(Network.FOLDER_NAME)
 if (not netContainer) then
@@ -9,65 +12,89 @@ if (not netContainer) then
     netContainer.Name = Network.FOLDER_NAME
 end
 
-local function addApiObject(obj: Instance)
+local function addApiObject(obj: Instance, name: string)
     obj.Parent = netContainer
+    obj.Name = name
 end
+
+------------------------------------------------------------------------------------------------------------------------
+-- Module
+------------------------------------------------------------------------------------------------------------------------
 
 local ServApi = {}
 
--- table of RemoteEvents to implement
+------------------------------------------------------------------------------------------------------------------------
+-- SERVER -> CLIENT(S)
+------------------------------------------------------------------------------------------------------------------------
+
+-- Create network instaces for clients, which are sent by clients
+do
+    for _, eventName in pairs(Network.serverEvents) do
+        local remEvent = Instance.new("RemoteEvent")
+        addApiObject(remEvent, eventName)
+        ServApi[eventName] = remEvent
+    end
+
+    for _, eventName in pairs(Network.serverFastEvents) do
+        local fastRemEvent = Instance.new("UnreliableRemoteEvent")
+        addApiObject(fastRemEvent, eventName)
+        ServApi[eventName] = fastRemEvent
+    end
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- CLIENT -> SERVER
+------------------------------------------------------------------------------------------------------------------------
+
+-- Implements RemoteEvents from table
 function ServApi.implementREvents(tbl: any)
     for _, eventName in pairs(Network.clientEvents) do
-        local remEvent = Instance.new("RemoteEvent")
-        remEvent.Name = eventName
-
         local serverMethod = tbl[eventName]
+        local remEvent = Instance.new("RemoteEvent")
+        addApiObject(remEvent, eventName)
 
-        if not serverMethod then
-			warn("missing RE implementation for " .. tostring(eventName))
-        else
-            remEvent.OnServerEvent:Connect(serverMethod)
-            addApiObject(remEvent)
+        if (not serverMethod) then
+			warn(`Missing RE implementation for '{eventName}'`); continue
         end
+        remEvent.OnServerEvent:Connect(function(...)  
+            if (DEBUG_EVENTS) then print(`Server received '{eventName}'`) end
+            serverMethod(...)
+        end)
     end
 end
 
--- table of FastRemoteEvents to implement
+-- Implements FastRemoteEvents from table
 function ServApi.implementFastREvents(tbl: any)
     for _, eventName in pairs(Network.clientFastEvents) do
-        local fastRemEvent = Instance.new("UnreliableRemoteEvent")
-        fastRemEvent.Name = eventName
-
         local serverMethod = tbl[eventName]
+        local fastRemEvent = Instance.new("UnreliableRemoteEvent")
+        addApiObject(fastRemEvent, eventName)
 
-        if not serverMethod then
-			warn("missing RE implementation for " .. tostring(eventName))
-		else
-            fastRemEvent.OnServerEvent:Connect(serverMethod)
-            addApiObject(fastRemEvent)
+        if (not serverMethod) then
+			warn(`Missing FastRE implementation for '{eventName}'`); continue
         end
+        fastRemEvent.OnServerEvent:Connect(function(...)  
+            if (DEBUG_FAST_EVENTS) then print(`Server received '{eventName}'`) end
+            serverMethod(...)
+        end)
     end
 end
 
--- table of RemoteFunctions to implement
+-- Implements RemoteFunctions from table
 function ServApi.implementRFunctions(tbl: any)
     for _, eventName in pairs(Network.remoteFunctions) do
-        local remFunc = Instance.new("RemoteFunction")
-        remFunc.Name = eventName
-        remFunc.Parent = netContainer
-
         local serverMethod = tbl[eventName]
+        local remFunc = Instance.new("RemoteFunction")
+        addApiObject(remFunc, eventName)
 
         if not serverMethod then
-			warn("missing RF implementation for " .. tostring(eventName))
+			warn(`Missing RF implementation for '{eventName}'`); continue
 		end
-
         remFunc.OnServerInvoke = function(...)
             return serverMethod(...)
         end
     end
 end
-
 -- Connects functions to RemoteEvents
 function ServApi.setConnection(name: string, func: any)
     assert(Network[name], "Missing definition of: "..name)

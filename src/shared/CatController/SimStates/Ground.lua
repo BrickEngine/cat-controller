@@ -43,6 +43,7 @@ local j_Delay = 0
 local lastYPos = 0
 local hasJumped = false
 local jumpSignal = false
+local offGroundTime = 0
 
 -- Create required physics constraints
 local function createForces(mdl: Model): {[string]: Instance}
@@ -305,8 +306,10 @@ function Ground:update(dt: number)
 
     -- update animation
     
-    if (not self.grounded) then
-        self.animation:setState(AnimationStateId.FALL, false)
+    if (not self.grounded and (offGroundTime >= 0.2 and currVel.Y < 0)) then
+        self.animation:setState(AnimationStateId.FALL, false, 0.2)
+    elseif (not self.grounded and currVel.Y > 0) then
+        self.animation:setState(AnimationStateId.JUMP, false)
     elseif (currHoriVel.Magnitude >= ANIM_TH_RUN) then
         self.animation:setState(AnimationStateId.RUN, true)
         self.animation:adjustSpeed(currHoriVel.Magnitude * ANIM_SPEED_FAC_RUN)
@@ -319,6 +322,12 @@ function Ground:update(dt: number)
     else
         self.animation:setState(AnimationStateId.IDLE, true)
         self.animation:adjustSpeed(1)
+    end
+
+    if (not self.grounded) then
+        offGroundTime += dt
+    else
+        offGroundTime = 0
     end
 end
 

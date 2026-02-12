@@ -7,7 +7,7 @@ local AnimationStateId = require(ReplicatedStorage.Shared.Enums.AnimationStateId
 
 local updateConn = nil
 
-local AnimFreezeMap = {
+local ANIM_FREEZE_MAP = table.freeze({
 	[AnimationStateId.IDLE] = false,
 	[AnimationStateId.CROUCH] = false,
 	[AnimationStateId.DIE] = true,
@@ -17,8 +17,9 @@ local AnimFreezeMap = {
     [AnimationStateId.RUN] = false,
 	[AnimationStateId.SWIM] = false,
 	[AnimationStateId.FALL] = true,
+	[AnimationStateId.JUMP] = true,
     [AnimationStateId.SIT] = true,
-}
+})
 
 ------------------------------------------------------------------------------------------------------------------------
 -- Module
@@ -27,11 +28,11 @@ local AnimFreezeMap = {
 local Animation = {}
 Animation.__index = Animation
 
-Animation.states = table.freeze({
+Animation.states = {
 	-- idle (0)
 	[AnimationStateId.IDLE] = {id = "rbxassetid://86097848386875", prio = 0},
 	[AnimationStateId.CROUCH] = {id = "rbxassetid://91356839033018", prio = 0},
-	[AnimationStateId.DIE] = {id = "rbxassetid://73372813061276", prio = 1},
+	[AnimationStateId.DIE] = {id = "rbxassetid://73372813061276", prio = 0},
 	-- movement (1)
     [AnimationStateId.SNEAK] = {id = "rbxassetid://82906371497519", prio = 1},
     [AnimationStateId.WALK] = {id = "rbxassetid://77304555003020", prio = 1}, -- Walk = {id = "rbxassetid://103722766186620", prio = 1},
@@ -39,9 +40,10 @@ Animation.states = table.freeze({
     [AnimationStateId.RUN] = {id = "rbxassetid://77304555003020", prio = 1}, -- Run = {id = "rbxassetid://101495361702146", prio = 1},
 	[AnimationStateId.SWIM] = {id = "rbxassetid://87927102844491", prio = 1},
 	[AnimationStateId.FALL] = {id = "rbxassetid://90056268589390", prio = 1},
+	[AnimationStateId.JUMP] = {id = "rbxassetid://119229944563710", prio = 1},
 	-- actions (2-5)
     [AnimationStateId.SIT] = {id = "rbxassetid://86378703965993", prio = 2},
-})
+}
 
 export type AnimationState = {
     id: string,
@@ -84,22 +86,11 @@ function Animation.new(simulation)
 end
 
 function Animation:update(dt: number)
-	-- if (not AnimFreezeMap[self.currentState]) then
-	-- 	return
-	-- end
-	
-	-- local currAnim = self.animTracks[self.currentState] :: AnimationTrack
-	-- local animEndTime = currAnim.Length - 0.1
-
-	-- if (currAnim.Ended) then
-	-- 	print("REEE")
-	-- 	--currAnim:Stop()
-	-- 	currAnim.TimePosition = animEndTime
-	-- end
+	-- unused
 end
 
 function Animation:onAnimationStopped()
-	if (not AnimFreezeMap[self.currentState]) then
+	if (not ANIM_FREEZE_MAP[self.currentState]) then
 		return
 	end
 
@@ -124,10 +115,6 @@ function Animation:setState(newState: string, looped: boolean, f_t: number?)
 	self.currentState = newState
 	self.animTracks[self.currentState].Looped = looped
 	self.animTracks[self.currentState]:Play(fade)
-
-	-- if (not _looped) then
-	-- 	task.wait(self.animTracks[self.currentState].Length * 0.8)
-	-- end
 end
 
 function Animation:adjustSpeed(speed: number)

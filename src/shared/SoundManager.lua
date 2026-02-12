@@ -45,8 +45,6 @@ end
 function SoundManager.playLocalOnPart(part: BasePart)
     local sound = part:FindFirstChildWhichIsA("Sound")
     assert(sound, "Missing sound")
-
-
 end
 
 function SoundManager.playGlobalAtPos(
@@ -69,10 +67,6 @@ function SoundManager.playGlobalOnPart(
 
     SoundManager.playLocal(item)
     CliNetApi[Network.clientEvents.requestSound](part)
-end
-
-function SoundManager.broadcast()
-    
 end
 
 -- Init sound instances

@@ -9,6 +9,7 @@ return table.freeze({
     RUN = "Run",
     SWIM = "Swim",
     FALL = "Fall",
+    JUMP = "Jump",
 
     SIT = "Sit"
 })

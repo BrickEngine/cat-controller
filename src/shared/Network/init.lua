@@ -5,7 +5,7 @@
     serverEvents - fired by server, observed by client;
     remoteFunctions - always invoked by client;
 --]]
-local NetApi = {
+local NetApi = table.freeze({
 
     FOLDER_NAME = "NetworkInstContainer",
 
@@ -29,6 +29,35 @@ local NetApi = {
     remoteFunctions = {
 
     }
-}
+})
+
+-- Assert all network object names are unique
+local function findDuplicates(tbl: {[any]: any})
+    local seen = {}
+    local duplicated = {}
+
+    local function traverse(subTbl)
+        for i,_ in pairs(subTbl) do
+            local element = subTbl[i]
+            if (type(element) == 'table') then
+                traverse(element)
+            else
+                if (seen[element]) then 
+                    duplicated[element] = true
+                else
+                    seen[element] = true
+                end 
+            end 
+        end 
+    end
+    traverse(tbl)
+
+    return duplicated
+end
+
+local duplicates = findDuplicates(NetApi)
+if (duplicates and #duplicates ~= 0) then
+    error("There are duplicate network object name definitions")
+end
 
 return NetApi

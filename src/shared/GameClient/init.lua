@@ -10,11 +10,10 @@ local Players = game:GetService("Players")
 
 local Network = require(ReplicatedStorage.Shared.Network)
 local CliApi = require(script.CliNetApi)
+--local SoundManager = require(ReplicatedStorage.Shared.SoundManager)
 
 -- Init Controller singleton
 require(ReplicatedStorage.Shared.CatController)
-
-local clientEvents = Network.clientEvents
 
 local DEFAULT_HEALTH = 100
 
@@ -41,10 +40,10 @@ function GameClient:InitPlayer()
     local function respawnAfterCharRemove(character: Model)
         print(character.Name .. " was removed")
         --task.wait(1.5)
-        CliApi[clientEvents.requestSpawn]()
+        CliApi[Network.clientEvents.requestSpawn]:FireServer()
     end
 
-    CliApi[clientEvents.requestSpawn]()
+    CliApi[Network.clientEvents.requestSpawn]:FireServer()
     Players.LocalPlayer.CharacterRemoving:Connect(respawnAfterCharRemove)
 end
 

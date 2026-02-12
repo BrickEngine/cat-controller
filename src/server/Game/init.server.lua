@@ -8,7 +8,7 @@ local Global = require(ReplicatedStorage.Shared.Global)
 local CollisionGroup = require(ReplicatedStorage.Shared.Enums.CollisionGroup)
 local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
 local Network = require(ReplicatedStorage.Shared.Network)
-local ServApi = require(script.ServNetApi)
+local ServNetApi = require(script.ServNetApi)
 
 ------------------------------------------------------------------------------------------------------
 -- Initialize Workspace
@@ -34,26 +34,6 @@ local function removePlayerCharacter(plr: Player)
 	if (plr.Character) then plr.Character:Destroy() end
 end
 
--- local function setPlrReplicationFocus(plr: Player)
---     if (not Players[plr.Name]) then
---         error("player does not exist", 2)
---     end
-
---     local repPart: BasePart
---     local basePlate = Workspace:FindFirstChild("Baseplate")
-
---     if (basePlate) then
---         repPart = basePlate
---     else
---         repPart = Instance.new("Part", Workspace)
---         repPart.Anchored = true
---         repPart.CFrame = CFrame.identity
---         repPart.CanCollide, repPart.CanQuery, repPart.CanTouch = false, false, false
---         repPart.Transparency = 1
---     end
---     plr.ReplicationFocus = repPart
--- end
-
 local function spawnAndSetPlrChar(plr: Player)
     -- TODO: proper PlayerModel selection
     local plrMdl = StarterPlayer:FindFirstChild("PlayerModel")
@@ -69,6 +49,11 @@ local function spawnAndSetPlrChar(plr: Player)
 
         plr.Character = newCharacter
         newCharacter.PrimaryPart:SetNetworkOwner(plr)
+        for _, v: Instance in newCharacter:GetDescendants() do
+            if (v:IsA("BasePart")) then
+                v:SetNetworkOwner(plr)
+            end
+        end
     end
 
     assert(plr.Character and plr.Character.PrimaryPart, "Player character must exist and have a primary part")
@@ -83,10 +68,19 @@ end
 local function onPlayerAdded(plr: Player)
     print(plr.Name .. " WAS ADDED")
     --setPlrReplicationFocus(plr)
+
 end
 
 local function onPlayerRemoving(plr: Player)
     removePlayerCharacter(plr)
+end
+
+local function onPlayerRequestSound(plr: Player, part: BasePart)
+    if (not part) then
+        warn(`{plr.Name} requested sound with no part`); return
+    end
+
+    ServNetApi[Network.serverEvents.playSound]()
 end
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -107,8 +101,8 @@ local remEventFunctions = {
         -- TODO
     end,
 
-    [Network.clientEvents.requestSound] = function(plr: Player)
-        -- TODO
+    [Network.clientEvents.requestSound] = function(plr: Player, part: BasePart)
+        onPlayerRequestSound(plr, part)
     end,
 }
 
@@ -120,9 +114,9 @@ local fastRemEventFunctions = {
 
 local remFunctionFunctions = {}
 
-ServApi.implementREvents(remEventFunctions)
-ServApi.implementFastREvents(fastRemEventFunctions)
-ServApi.implementRFunctions(remFunctionFunctions)
+ServNetApi.implementREvents(remEventFunctions)
+ServNetApi.implementFastREvents(fastRemEventFunctions)
+ServNetApi.implementRFunctions(remFunctionFunctions)
 
 Players.PlayerAdded:Connect(onPlayerAdded)
 Players.PlayerRemoving:Connect(onPlayerRemoving)

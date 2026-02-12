@@ -63,7 +63,7 @@ local basePlrMdl = StarterPlayer:FindFirstChild("PlayerModel")
 local baseJoints = basePlrMdl:FindFirstChild("CharacterJoints")
 
 -- default joint object-space CFrame offsets
-local baseJointOffsets = {
+local baseJOffsets = {
     -- root
     root_c0 = baseJoints:FindFirstChild(JOINT_NAMES.root).C0,
     root_c1 = baseJoints:FindFirstChild(JOINT_NAMES.root).C1,
@@ -87,12 +87,9 @@ for n, str: string in pairs(JOINT_NAMES) do
     end
 end
 
--- local function tweenRotation(newCFrame: CFrame, joint: Motor6D)
--- 	local goal = {C1 = newCFrame}
--- 	local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
--- 	local tween = TweenService:Create(joint, tweenInfo, goal)
--- 	tween:Play()
--- end
+------------------------------------------------------------------------------------------------------------------------
+-- Update
+------------------------------------------------------------------------------------------------------------------------
 
 local function update(dt: number)
     local stateId = simulation:getCurrentStateId()
@@ -111,7 +108,7 @@ local function update(dt: number)
                 rootLookVec:Dot(crossDirVec)
             )
             diffAngle = math.clamp(diffAngle, -MAX_SLOPE_ANGLE, MAX_SLOPE_ANGLE)
-            local newRootCF = baseJointOffsets.root_c0 * CFrame.Angles(diffAngle, 0, 0)
+            local newRootCF = baseJOffsets.root_c0 * CFrame.Angles(diffAngle, 0, 0)
 
 
             root.C0 = root.C0:Lerp(newRootCF, LERP_DT)
@@ -129,11 +126,11 @@ local function update(dt: number)
 
         local rotVec = Vector3.new(0, rotSpeedY)
 
-        local torso0 = joints[JOINT_NAMES.torso0]
-        local torso1 = joints[JOINT_NAMES.torso1]
-        local tail0 = joints[JOINT_NAMES.tail0]
-        local tail1 = joints[JOINT_NAMES.tail1]
-        local neck0 = joints[JOINT_NAMES.neck0]
+        local torso0 = joints[JOINT_NAMES.torso0] :: Motor6D
+        local torso1 = joints[JOINT_NAMES.torso1] :: Motor6D
+        local tail0 = joints[JOINT_NAMES.tail0] :: Motor6D
+        local tail1 = joints[JOINT_NAMES.tail1] :: Motor6D
+        local neck0 = joints[JOINT_NAMES.neck0] :: Motor6D
 
         local function lerpJointAnglesCF(cf: CFrame, cf_base: CFrame, rVec: Vector3) : CFrame
             return cf * cf:ToObjectSpace(
@@ -141,21 +138,24 @@ local function update(dt: number)
             )
         end
 
-        torso0.C0 = lerpJointAnglesCF(torso0.C0, baseJointOffsets.torso0_c0, rotVec)
-        torso1.C1 = lerpJointAnglesCF(torso1.C1, baseJointOffsets.torso1_c1, rotVec)
-        tail0.C0 = lerpJointAnglesCF(tail0.C0, baseJointOffsets.tail0_c0, -rotVec * 1.175)
-        tail1.C0 = lerpJointAnglesCF(tail1.C0, baseJointOffsets.tail1_c0, -rotVec * 0.85)
-        neck0.C0 = lerpJointAnglesCF(neck0.C0, baseJointOffsets.neck0_c0, rotVec)
+        torso0.C0 = lerpJointAnglesCF(torso0.C0, baseJOffsets.torso0_c0, rotVec)
+        torso1.C1 = lerpJointAnglesCF(torso1.C1, baseJOffsets.torso1_c1, rotVec)
+        tail0.C0 = lerpJointAnglesCF(tail0.C0, baseJOffsets.tail0_c0, -rotVec * 1.175)
+        tail1.C0 = lerpJointAnglesCF(tail1.C0, baseJOffsets.tail1_c0, -rotVec * 0.85)
+        neck0.C0 = lerpJointAnglesCF(neck0.C0, baseJOffsets.neck0_c0, rotVec)
     end
 
     -- TODO: footplanting
 end
 
-local updateConn = RunService.PreSimulation:Connect(update)
+local updateConn = RunService.PostSimulation:Connect(update)
+local descConn
 
-character.DescendantRemoving:Connect(function(descendant)
+descConn = character.DescendantRemoving:Connect(function(descendant)
     if (descendant == charRoot) then
         updateConn:Disconnect()
+        descConn:Disconnect()
+        descConn = nil
         updateConn = nil
     end
 end)
