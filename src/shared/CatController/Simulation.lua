@@ -68,9 +68,7 @@ end
 function Simulation:transitionState(newStateId: number, params: any?)
     state_free = false
 
-    if (Global.PRINT_SIM_DEBUG) then
-        print(`Transitioning from {self.currentState.id} to {newStateId}`)
-    end
+    Global.logInfo(`Transitioning from {self.currentState.id} to {newStateId}`)
 
     local newState = self.states[newStateId]
     assert(newState, "cannot transition to nonexistent state")
@@ -141,7 +139,7 @@ function Simulation:resetSimulation()
     self.currentState = self.states[PlayerStateId.GROUNDED]
     self.currentState:stateEnter()
 
-    self.simUpdateConn = RunService.PostSimulation:Connect(function(dt)
+    self.simUpdateConn = RunService.PreSimulation:Connect(function(dt)
         self:update(dt)
     end)
 end

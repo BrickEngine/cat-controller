@@ -75,12 +75,12 @@ local function onPlayerRemoving(plr: Player)
     removePlayerCharacter(plr)
 end
 
-local function onPlayerRequestSound(plr: Player, part: BasePart)
-    if (not part) then
-        warn(`{plr.Name} requested sound with no part`); return
+local function onPlayerRequestSound(plr: Player, item: string?, play: boolean?)
+    if (not (item or play)) then
+        warn(`{plr.Name} sent illegal sound item arg`); return
     end
 
-    ServNetApi[Network.serverEvents.playSound]()
+    ServNetApi.events[Network.serverEvents.playSound]:FireAllClients(plr, item, play)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -101,8 +101,8 @@ local remEventFunctions = {
         -- TODO
     end,
 
-    [Network.clientEvents.requestSound] = function(plr: Player, part: BasePart)
-        onPlayerRequestSound(plr, part)
+    [Network.clientEvents.requestSound] = function(plr: Player, ...)
+        onPlayerRequestSound(plr, ...)
     end,
 }
 

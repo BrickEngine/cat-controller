@@ -8,7 +8,10 @@ local netObjFolder = ReplicatedStorage:WaitForChild(Network.FOLDER_NAME)
 -- Module
 ------------------------------------------------------------------------------------------------------------------------
 
-local CliApi = {}
+local CliApi = {
+	events = {} :: {[string]: RemoteEvent},
+	fastEvents = {} :: {[string]: UnreliableRemoteEvent}
+}
 
 ------------------------------------------------------------------------------------------------------------------------
 -- CLIENT -> SERVER
@@ -19,19 +22,15 @@ do
 	for _, eventName in pairs(Network.clientEvents) do
 		local remEvent = netObjFolder:WaitForChild(eventName)
 
-		if (not remEvent:IsA("RemoteEvent")) then
-			error(eventName.." is not a RemoteEvent")
-		end
-		CliApi[eventName] = remEvent
+		assert(remEvent, `Missing RemoteEvent for '{eventName}'`)
+		CliApi.events[eventName] = remEvent
 	end
 
 	for _, eventName in pairs(Network.clientFastEvents) do
 		local fastRemEvent = netObjFolder:WaitForChild(eventName)
 
-		if (not fastRemEvent:IsA("UnreliableRemoteEvent")) then
-			error(eventName.." is not a UnreliableRemoteEvent")
-		end
-		CliApi[eventName] = fastRemEvent
+		assert(fastRemEvent, `Missing FastRemoteEvent for '{eventName}'`)
+		CliApi.fastEvents[eventName] = fastRemEvent
 	end
 end
 
@@ -48,7 +47,7 @@ function CliApi.implementREvents(tbl: any)
         end
 
 		local remEvent = netObjFolder:WaitForChild(eventName)
-        remEvent.OnServerEvent:Connect(function(...)  
+        remEvent.OnClientEvent:Connect(function(...)  
             cliMethod(...)
         end)
     end
@@ -63,7 +62,7 @@ function CliApi.implementFastREvents(tbl: any)
         end
 
         local fastRemEvent = netObjFolder:WaitForChild(eventName)
-        fastRemEvent.OnServerEvent:Connect(function(...)  
+        fastRemEvent.OnClientEvent:Connect(function(...)  
             cliMethod(...)
         end)
     end

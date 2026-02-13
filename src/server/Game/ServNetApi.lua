@@ -1,9 +1,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Network = require(ReplicatedStorage.Shared.Network)
-
-local DEBUG_EVENTS = true
-local DEBUG_FAST_EVENTS = true
+local Global = require(ReplicatedStorage.Shared.Global)
 
 -- Create the folder for storing network objects, if it does not exist
 local netContainer = ReplicatedStorage:FindFirstChild(Network.FOLDER_NAME)
@@ -21,7 +19,10 @@ end
 -- Module
 ------------------------------------------------------------------------------------------------------------------------
 
-local ServApi = {}
+local ServApi = {
+    events = {} :: {[string]: RemoteEvent},
+	fastEvents = {} :: {[string]: UnreliableRemoteEvent}
+}
 
 ------------------------------------------------------------------------------------------------------------------------
 -- SERVER -> CLIENT(S)
@@ -32,13 +33,13 @@ do
     for _, eventName in pairs(Network.serverEvents) do
         local remEvent = Instance.new("RemoteEvent")
         addApiObject(remEvent, eventName)
-        ServApi[eventName] = remEvent
+        ServApi.events[eventName] = remEvent
     end
 
     for _, eventName in pairs(Network.serverFastEvents) do
         local fastRemEvent = Instance.new("UnreliableRemoteEvent")
         addApiObject(fastRemEvent, eventName)
-        ServApi[eventName] = fastRemEvent
+        ServApi.fastEvents[eventName] = fastRemEvent
     end
 end
 
@@ -57,7 +58,7 @@ function ServApi.implementREvents(tbl: any)
 			warn(`Missing RE implementation for '{eventName}'`); continue
         end
         remEvent.OnServerEvent:Connect(function(...)  
-            if (DEBUG_EVENTS) then print(`Server received '{eventName}'`) end
+            Global.logInfo(`Server received '{eventName}'`)
             serverMethod(...)
         end)
     end
@@ -74,7 +75,7 @@ function ServApi.implementFastREvents(tbl: any)
 			warn(`Missing FastRE implementation for '{eventName}'`); continue
         end
         fastRemEvent.OnServerEvent:Connect(function(...)  
-            if (DEBUG_FAST_EVENTS) then print(`Server received '{eventName}'`) end
+            Global.logInfo(`Server received '{eventName}'`)
             serverMethod(...)
         end)
     end

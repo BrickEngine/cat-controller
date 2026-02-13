@@ -1,11 +1,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local SoundService = game:GetService("SoundService")
 local Workspace = game:GetService("Workspace")
 
 local controller = script.Parent.Parent
 local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
 local PlayerStateId = require(ReplicatedStorage.Shared.Enums.PlayerStateId)
 local AnimationStateId = require(ReplicatedStorage.Shared.Enums.AnimationStateId)
+local SoundManager = require(ReplicatedStorage.Shared.SoundManager)
 local InputManager = require(controller.InputManager)
 local BaseState = require(controller.SimStates.BaseState)
 local PhysCheck = require(controller.Common.PhysCheck)
@@ -28,7 +28,7 @@ local ANIM_SPEED_FAC_WALK = 0.07
 local ANIM_SPEED_FAC_RUN = 0.12
 
 -- misc
-local DO_QUAKE_JUMP_SOUND = true
+local DO_JUMP_SOUND = true
 
 -- constants
 local PHYS_RADIUS = CharacterDef.PARAMS.LEGCOLL_SIZE.Z * 0.5
@@ -200,11 +200,8 @@ function Ground:updateJump(dt: number, override: boolean?)
 
         -- execute jump
         if (jumpSignal or override) then
-            if (DO_QUAKE_JUMP_SOUND) then
-                local s = Instance.new("Sound")
-                s.SoundId = "rbxassetid://5466166437"
-                SoundService:PlayLocalSound(s)
-                s:Destroy()
+            if (DO_JUMP_SOUND and not override) then
+                SoundManager.updateGlobalSound(SoundManager.soundItem.JUMP, true)
             end
 
             self.forces.posForce.Enabled = false
@@ -296,6 +293,10 @@ function Ground:update(dt: number)
     -- manage posForce
     if (self.grounded) then
         local targetPosY = groundData.gndHeight + HIP_HEIGHT
+
+        if (DO_JUMP_SOUND and offGroundTime >= 0.2) then
+            SoundManager.updateGlobalSound(SoundManager.soundItem.FLOOR_HIT, true)
+        end
 
         -- scale force with cubed vertical velocity to compensate for high falls
         self.forces.posForce.MaxAxesForce = mass * (grav * 20 + currVel.Y * currVel.Y) * VEC3_UP

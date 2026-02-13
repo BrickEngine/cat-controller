@@ -10,7 +10,8 @@ local Players = game:GetService("Players")
 
 local Network = require(ReplicatedStorage.Shared.Network)
 local CliApi = require(script.CliNetApi)
---local SoundManager = require(ReplicatedStorage.Shared.SoundManager)
+local Global = require(ReplicatedStorage.Shared.Global)
+local SoundManager = require(ReplicatedStorage.Shared.SoundManager)
 
 -- Init Controller singleton
 require(ReplicatedStorage.Shared.CatController)
@@ -37,13 +38,14 @@ function GameClient.init()
 end
 
 function GameClient:InitPlayer()
-    local function respawnAfterCharRemove(character: Model)
-        print(character.Name .. " was removed")
+    local function respawnAfterCharRemove(char: Model)
+        Global.logInfo(`Removing character of {char.Name}`)
         --task.wait(1.5)
-        CliApi[Network.clientEvents.requestSpawn]:FireServer()
+        CliApi.events[Network.clientEvents.requestSpawn]:FireServer()
     end
 
-    CliApi[Network.clientEvents.requestSpawn]:FireServer()
+    Global.logInfo(`LocalPlayer requests spawn`)
+    CliApi.events[Network.clientEvents.requestSpawn]:FireServer()
     Players.LocalPlayer.CharacterRemoving:Connect(respawnAfterCharRemove)
 end
 
@@ -72,5 +74,21 @@ function GameClient:reset()
         function(dt) self:update(dt) end
     )
 end
+
+------------------
+local cliREFunction = {
+    [Network.serverEvents.playSound] = function(plr: Player, item: string, play: boolean)
+        SoundManager.updatePlayerSound(plr, item, play)
+    end
+}
+
+local cliFastREFunctions = {
+    [Network.serverFastEvents.jointsDataToClient] = function(plr: Player)
+        -- TODO
+    end,
+}
+
+CliApi.implementREvents(cliREFunction)
+CliApi.implementFastREvents(cliFastREFunctions)
 
 return GameClient
