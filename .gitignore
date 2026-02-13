@@ -1,5 +1,8 @@
+# VS Code
+.vscode/settings.json
+
 # Project place file
-/Cat Controller.rbxlx
+/*.rbxlx
 
 # Roblox Studio lock files
 /*.rbxlx.lock
