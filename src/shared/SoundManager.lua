@@ -163,7 +163,6 @@ function SoundManager.updatePlayerSound(plr: Player, item: string, play: boolean
     if (not (playerSoundsMap[plr] and playerSoundsMap[plr][item])) then
         warn("No sound"); return
     end
-    print(play)
     updateSound(playerSoundsMap[plr][item], play)
 end
 
@@ -200,5 +199,4 @@ function SoundManager.clearAllEffects(sound: Sound)
     soundEffectsMap[sound] = nil
 end
 
-SoundManager.init()
 return SoundManager

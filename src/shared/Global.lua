@@ -1,5 +1,8 @@
 -- Global constants for client and server side modules.
 
+local RunService = game:GetService("RunService")
+RunService:GetActor()
+
 local PRINT_INFO_DEBUG = true
 
 return table.freeze({

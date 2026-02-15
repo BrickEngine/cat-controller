@@ -2,18 +2,22 @@ local Players = game:GetService("Players")
 local GuiService = game:GetService("GuiService")
 local UserInputService = game:GetService("UserInputService")
 local ContextActionService = game:GetService("ContextActionService")
+local ReplicatedFirst = game:GetService("ReplicatedFirst")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local BaseInput = require(script.Parent.BaseInput)
 local ContextAction = require(ReplicatedStorage.Shared.Enums.ContextAction)
+local Assets = require(ReplicatedFirst.SharedFirst.Assets)
 
 local VEC3_ZERO = Vector3.zero
 local VEC2_JUMP_BTN_RECT_OFFS = Vector2.new(1, 146)
 local VEC2_DEFAULT_BTN_RECT_SIZE = Vector2.new(144, 144)
 
 local TOUCH_CONTROLS_SHEET = "rbxasset://textures/ui/Input/TouchControlsSheetV2.png"
+local BTN_RUN_ACTIVE = Assets.IMAGE_IDS.BTN_RUN_ACTIVE
+local BTN_RUN_INACTIVE = Assets.IMAGE_IDS.BTN_RUN_INACTIVE
 
 local DYNAMIC_THUMBSTICK_ACTION_NAME = ContextAction.MOVE_THUMBSTICK
 local JUMP_BUTTON_ACTION_NAME = ContextAction.JUMP_BUTTON
@@ -130,7 +134,6 @@ end
 
 --local runToggle = false
 function MoveTouch:updateRun()
-    print(self.isRunning)
     self.isRunning = self.runInp
 end
 
@@ -615,8 +618,9 @@ function MoveTouch:create(parentFrame: GuiBase2d)
         end
 
         local playerGuiChangedConn = nil
-        local originalScreenOrientationWasLandscape =	playerGui.CurrentScreenOrientation == Enum.ScreenOrientation.LandscapeLeft or
-                                                        playerGui.CurrentScreenOrientation == Enum.ScreenOrientation.LandscapeRight
+        local originalScreenOrientationWasLandscape = 
+            playerGui.CurrentScreenOrientation == Enum.ScreenOrientation.LandscapeLeft 
+            or playerGui.CurrentScreenOrientation == Enum.ScreenOrientation.LandscapeRight
 
         local function longShowBackground()
             self.fadeInAndOutHalfDuration = 1.5
@@ -625,8 +629,11 @@ function MoveTouch:create(parentFrame: GuiBase2d)
         end
 
         playerGuiChangedConn = playerGui:GetPropertyChangedSignal("CurrentScreenOrientation"):Connect(function()
-            if (originalScreenOrientationWasLandscape and playerGui.CurrentScreenOrientation == Enum.ScreenOrientation.Portrait) or
-                (not originalScreenOrientationWasLandscape and playerGui.CurrentScreenOrientation ~= Enum.ScreenOrientation.Portrait) then
+            if (originalScreenOrientationWasLandscape 
+                and playerGui.CurrentScreenOrientation == Enum.ScreenOrientation.Portrait) 
+                or (not originalScreenOrientationWasLandscape 
+                and playerGui.CurrentScreenOrientation ~= Enum.ScreenOrientation.Portrait) 
+                then
 
                 playerGuiChangedConn:Disconnect()
                 longShowBackground()
@@ -651,7 +658,7 @@ function MoveTouch:create(parentFrame: GuiBase2d)
         end
     end
 
-    ----------------------------------------------------------------------------------------------------------------------------------------
+    --------------------------------------------------------------------------------------------------------------------
     -- setup jump button
     local resizeJumpBtn do
         if self.jumpButton then
@@ -696,8 +703,7 @@ function MoveTouch:create(parentFrame: GuiBase2d)
         self.jumpButton.Parent = parentFrame
     end
 
-    ----------------------------------------------------------------------------------------------------------------------------------------
-    -- setup run button
+    --------------------------------------------------------------------------------------------------------------------
     local resizeRunBtn do
         if (self.runButton) then
             self.runButton:Destroy()
@@ -708,7 +714,7 @@ function MoveTouch:create(parentFrame: GuiBase2d)
         self.runButton.Name = "RunButton"
         self.runButton.Visible = false
         self.runButton.BackgroundTransparency = 1
-        self.runButton.Image = "http://www.roblox.com/asset/?id=1249020613"
+        self.runButton.Image = BTN_RUN_INACTIVE
 
         function resizeRunBtn()
             local minAxis = math.min(parentFrame.AbsoluteSize.X, parentFrame.AbsoluteSize.Y)
@@ -733,9 +739,9 @@ function MoveTouch:create(parentFrame: GuiBase2d)
             self.runInp = not self.runInp
 
             if (self.runInp) then
-                self.runButton.Image = "http://www.roblox.com/asset/?id=11677094284"
+                self.runButton.Image = BTN_RUN_ACTIVE
             else
-                self.runButton.Image = "http://www.roblox.com/asset/?id=1249020613"
+                self.runButton.Image = BTN_RUN_INACTIVE
             end
 
             self:updateRun()

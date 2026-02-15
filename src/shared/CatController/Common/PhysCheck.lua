@@ -4,7 +4,7 @@ local Workspace = game:GetService("Workspace")
 local DebugVisualize = require(script.Parent.DebugVisualize)
 local CollisionGroup = require(ReplicatedStorage.Shared.Enums.CollisionGroup)
 
--- [[checkFloor]]
+--[[checkFloor]]
 
 -- number of rays to cast
 local NUM_GND_RAYS = 64
@@ -20,7 +20,7 @@ local MAX_GND_POINT_DIFF = 0.25
  -- if true, picks highest point as target position
 local TARGET_CLOSEST = true
 
--- [[Misc]]
+--[[Misc]]
 
 local PHI = 1.61803398875
 local BOUND_POINTS = math.round(2 * math.sqrt(NUM_GND_RAYS))

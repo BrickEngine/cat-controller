@@ -5,6 +5,12 @@ local Workspace = game:GetService("Workspace")
 local CollisionGroup = require(ReplicatedStorage.Shared.Enums.CollisionGroup)
 
 local PLAYERMDL_MASS_ENABLED = false
+local PRINT_UNUSED_PARTS_WARNING = false
+
+-- not to be confused with the actual primary part of the character
+local PLAYERMDL_ROOTPART_NAME = "MdlRoot"
+local JOINTS_FOLDER_NAME = "CharacterJoints"
+
 local MAIN_ROOT_PRIO = 100
 
 -----------------------------------------------------------------------------------------------------------------
@@ -12,7 +18,7 @@ local MAIN_ROOT_PRIO = 100
 
 local PARAMS = {
     ROOT_ATT_NAME = "Root",
-    ROOTPART_SIZE = Vector3.new(0, 0, 0),
+    ROOTPART_SIZE = Vector3.new(1, 1, 1),
     MAINCOLL_SIZE = Vector3.new(1, 2, 2),
     LEGCOLL_SIZE = Vector3.new(2, 2, 2),
     ROOTPART_SHAPE = Enum.PartType.Block,
@@ -113,6 +119,7 @@ local function createCharacter(playerModel: Model?): Model
 
     local plrMdlClone = playerModel:Clone()
     local plrMdlPrimPart = plrMdlClone.PrimaryPart
+    plrMdlPrimPart.Name = PLAYERMDL_ROOTPART_NAME
 
     for _, inst: Instance in pairs(plrMdlClone:GetDescendants()) do
         if (inst:IsA("BasePart")) then
@@ -130,7 +137,7 @@ local function createCharacter(playerModel: Model?): Model
     createParentedWeld(rootPart, plrMdlPrimPart)
 
     -- Discard playermodel with remaining unused components
-    if (#(plrMdlClone:GetDescendants()) > 0) then
+    if (#(plrMdlClone:GetDescendants()) > 0 and PRINT_UNUSED_PARTS_WARNING) then
         warn("Playermodel included unused components, which were discarded:")
         warn(plrMdlClone:GetDescendants())
     end
@@ -149,17 +156,14 @@ local function createCharacter(playerModel: Model?): Model
 end
 
 ------------------------------------------------------------------------------------------------------------------------
+-- Module
+------------------------------------------------------------------------------------------------------------------------
 
-local CharacterDef = {}
-CharacterDef.__index = CharacterDef
-
-function CharacterDef.new()
-    local self = setmetatable({}, CharacterDef)
-
-    self.PARAMS = PARAMS
-
-    return self
-end
+local CharacterDef = {
+    PARAMS = PARAMS,
+    PLAYERMDL_ROOTPART_NAME = PLAYERMDL_ROOTPART_NAME,
+    JOINTS_FOLDER_NAME = JOINTS_FOLDER_NAME
+}
 
 -- Can only be called on the server
 function CharacterDef.createCharacter(playerModel: Model): Model
@@ -173,4 +177,4 @@ function CharacterDef.createCharacter(playerModel: Model): Model
     return character
 end
 
-return CharacterDef.new()
+return CharacterDef

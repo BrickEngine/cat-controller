@@ -9,8 +9,14 @@ local CollisionGroup = require(ReplicatedStorage.Shared.Enums.CollisionGroup)
 local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
 local Network = require(ReplicatedStorage.Shared.Network)
 local ServNetApi = require(script.ServNetApi)
+local DynamicAnim = require(ReplicatedStorage.Shared.DynamicAnim)
 
-------------------------------------------------------------------------------------------------------
+local MAX_INVALID_FAST_EVENTS_COUNT = 500
+
+local fastEventPlayerBlacklist = {} :: {Player}
+local illegalPlayerCallsMap = {} :: {[Player]: number}
+
+------------------------------------------------------------------------------------------------------------------------
 -- Initialize Workspace
 do
     -- Create Workspace folder for runtime player characters
@@ -28,7 +34,31 @@ do
     end
 end
 
-------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------
+
+-- local function validateTableOfType(tbl: any, elemTypeName: string): boolean
+--     if (type(tbl) ~= "table") then return false end
+--     if (#tbl > MAX_DATA_ARR_SIZE) then return false end
+
+--     for _, v: any in pairs(tbl) do
+--         if (typeof(v) ~= elemTypeName) then
+--             return false
+--         end
+--     end
+--     return true
+-- end
+
+-- Registers an illegal fast event for a given player and returns true if they
+-- exceeded the max numbers of illegal fast events
+local function registerIllegalFastEvent(plr: Player)
+    if (not illegalPlayerCallsMap[plr]) then
+        illegalPlayerCallsMap[plr] = 0
+    end
+    if (illegalPlayerCallsMap[plr] >= MAX_INVALID_FAST_EVENTS_COUNT) then
+        fastEventPlayerBlacklist[plr] = true; return
+    end
+    illegalPlayerCallsMap[plr] += 1
+end
 
 local function removePlayerCharacter(plr: Player)
 	if (plr.Character) then plr.Character:Destroy() end
@@ -41,7 +71,7 @@ local function spawnAndSetPlrChar(plr: Player)
 
     -- TODO: proper spawn management
     local tmpSpawn : SpawnLocation = Workspace:FindFirstChildWhichIsA("SpawnLocation", true)
-	local spawnPos : Vector3 = (tmpSpawn.CFrame.Position + Vector3.new(0,2,0)) or Vector3.new(0, 50, 0)  --spawns[math.random(1, #spawns)]
+	local spawnPos : Vector3 = (tmpSpawn.CFrame.Position + Vector3.new(0,2,0)) or Vector3.new(0, 50, 0)
     do
         newCharacter.Name = tostring(plr.UserId)
         newCharacter.Parent = Workspace:FindFirstChild(Global.PLAYERS_INST_FOLDER_NAME)
@@ -76,11 +106,31 @@ local function onPlayerRemoving(plr: Player)
 end
 
 local function onPlayerRequestSound(plr: Player, item: string?, play: boolean?)
-    if (not (item or play)) then
+    if (type(item) ~= "string" or type(play) ~= "boolean") then
         warn(`{plr.Name} sent illegal sound item arg`); return
     end
-
     ServNetApi.events[Network.serverEvents.playSound]:FireAllClients(plr, item, play)
+end
+
+local function onJointDataSend(plr: Player, dataString: string)
+    if (not plr.Character) then
+        warn(`{plr} attempted to send joint data without active character`)
+        registerIllegalFastEvent(plr); return
+    end
+    --dataString = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    -- validate sent player data
+    local isValidData = true
+    if ((typeof(dataString) ~= "string") or
+        (dataString:len() < DynamicAnim.DATA_PACK_BYTES)
+    ) then 
+        isValidData = false 
+    end
+
+    if (not isValidData) then
+        warn(`{plr} sent invalid payload`)
+        registerIllegalFastEvent(plr); return
+    end
+    ServNetApi.fastEvents[Network.serverFastEvents.jointsDataToClient]:FireAllClients(plr, dataString)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -107,8 +157,11 @@ local remEventFunctions = {
 }
 
 local fastRemEventFunctions = {
-    [Network.clientFastEvents.jointsDataToServer] = function(plr: Player)
-        -- TODO
+    [Network.clientFastEvents.jointsDataToServer] = function(plr: Player, ...)
+        if (fastEventPlayerBlacklist[plr]) then
+            return
+        end
+        onJointDataSend(plr, ...)
     end,
 }
 

@@ -1,6 +1,5 @@
 -- Server only
 
-local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local STREAMING_ENABLED = Workspace.StreamingEnabled

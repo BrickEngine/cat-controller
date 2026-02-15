@@ -1,7 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Network = require(ReplicatedStorage.Shared.Network)
-local Global = require(ReplicatedStorage.Shared.Global)
+
+local LOG_EVENTS = true
+local LOG_FAST_EVENTS = false
 
 -- Create the folder for storing network objects, if it does not exist
 local netContainer = ReplicatedStorage:FindFirstChild(Network.FOLDER_NAME)
@@ -43,6 +45,12 @@ do
     end
 end
 
+local function logEvent(str: string, isFastEvent: boolean)
+    if (not LOG_EVENTS or (isFastEvent and not LOG_FAST_EVENTS)) then
+        return
+    end
+    print("[NET] - "..str)
+end
 ------------------------------------------------------------------------------------------------------------------------
 -- CLIENT -> SERVER
 ------------------------------------------------------------------------------------------------------------------------
@@ -58,7 +66,7 @@ function ServApi.implementREvents(tbl: any)
 			warn(`Missing RE implementation for '{eventName}'`); continue
         end
         remEvent.OnServerEvent:Connect(function(...)  
-            Global.logInfo(`Server received '{eventName}'`)
+            logEvent(`Server received '{eventName}'`, false)
             serverMethod(...)
         end)
     end
@@ -75,7 +83,7 @@ function ServApi.implementFastREvents(tbl: any)
 			warn(`Missing FastRE implementation for '{eventName}'`); continue
         end
         fastRemEvent.OnServerEvent:Connect(function(...)  
-            Global.logInfo(`Server received '{eventName}'`)
+            logEvent(`Server received '{eventName}'`, true)
             serverMethod(...)
         end)
     end
@@ -99,8 +107,6 @@ end
 -- Connects functions to RemoteEvents
 function ServApi.setConnection(name: string, func: any)
     assert(Network[name], "Missing definition of: "..name)
-
-
 end
 
 return ServApi

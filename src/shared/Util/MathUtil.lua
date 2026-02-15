@@ -133,5 +133,52 @@ function MathUtil.clampVectorToCone(v: Vector3, n: Vector3, phi: number): Vector
     return uProj * mag
 end
 
+------------------------------------------------------------------------------------------------------------------------
+-- Quaternions
+------------------------------------------------------------------------------------------------------------------------
+
+-- Constructs a Quaternion (set of numbers) from the rotation components of the given CFrame
+-- returns components in order: x, y, z, w
+function MathUtil.createQuaternionFromCFrame(cframe: CFrame): (number, number, number, number)
+	local _, _, _, m00, m01, m02, m10, m11, m12, m20, m21, m22 = cframe:Orthonormalize():GetComponents()
+
+	local x, y, z, w
+
+	local trace = m00 + m11 + m22
+	if trace > 0 then
+		local s = math.sqrt(trace + 1) * 2
+		x = (m21 - m12) / s
+		y = (m02 - m20) / s
+		z = (m10 - m01) / s
+		w = 0.25 * s
+	elseif m00 > m11 and m00 > m22 then
+		local s = math.sqrt(1 + m00 - m11 - m22) * 2
+		x = 0.25 * s
+		y = (m01 + m10) / s
+		z = (m02 + m20) / s
+		w = (m21 - m12) / s
+	elseif m11 > m22 then
+		local s = math.sqrt(1 + m11 - m00 - m22) * 2
+		x = (m01 + m10) / s
+		y = 0.25 * s
+		z = (m12 + m21) / s
+		w = (m02 - m20) / s
+	else
+		local s = math.sqrt(1 + m22 - m00 - m11) * 2
+		x = (m02 + m20) / s
+		y = (m12 + m21) / s
+		z = 0.25 * s
+		w = (m10 - m01) / s
+	end
+
+	return x, y, z, w
+end
+
+-- Converts a Qaternion (set of numbers) to a CFrame
+function MathUtil.getCFrameFromQuaternion(x: number, y: number, z: number, w: number, position: Vector3?): CFrame
+	local pos = if (position == nil) then Vector3.zero else position
+
+	return CFrame.new(pos.X, pos.Y, pos.Z, x, y, z, w)
+end
 
 return MathUtil
