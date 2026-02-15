@@ -31,10 +31,11 @@ local MAX_QUAT_ABS = 2.0
 
 --[[General]]
 
-local REPLICATION_DELTA = 0.05 -- time interval between event calls (0.05 sec ~ 20 FPS)
+local REPLICATION_DELTA = 0.025 -- time interval between event calls (0.025 sec ~ 40 FPS)
 local MAX_SLOPE_ANGLE = math.rad(30)
 local VEC3_ZERO = Vector3.zero
 local LERP_DT = 0.1
+local NET_LERP_DT = 0.5 -- lerp for other players
 
 ------------------------------------------------------------------------------------------------------------------------
 -- Module and server data
@@ -80,11 +81,16 @@ local simulation = Controller:getSimulation()
 local character: Model
 local plrMdlRoot: BasePart
 local joints: {[string]: Motor6D}
+
+local plrCharTbl = {} :: {[Player]: Model}
+local plrTargetDataTbl = {} :: {[Player]: {posOffset: Vector3, cFrameArr: CFrame}}
+
 local connections = {
     updateConn = nil,
     charAddedConn = nil,
     charRemovingConn = nil,
     plrAddedConn = nil,
+    plrRemovingConn = nil
 }
 local plrConnections = {} :: {[Player]: {RBXScriptConnection}}
 
@@ -231,6 +237,37 @@ local function update(dt: number)
 
     -- TODO: footplanting
 
+    -- lerp CFrame targets for each existing other player's character
+    do
+        for plr: Player, plrChar: Model in pairs(plrCharTbl) do
+            if (not (plrChar and plrTargetDataTbl[plr])) then
+                continue
+            end
+
+            local posOffset = plrTargetDataTbl[plr].posOffset
+            local cFrameArr = plrTargetDataTbl[plr].cFrameArr
+
+            if (not (posOffset and cFrameArr)) then
+                continue
+            end
+
+            local plrJFolder = plrChar[CHAR_JOINTS_FOLDER_NAME] :: Folder
+            if (typeof(plrJFolder) ~= "Instance" and not plrJFolder:IsA("Folder")) then
+                warn(`{plr.Name} has no joints folder`); continue
+            end
+
+            for i, j_name: string in JOINT_INDEX_ARR do
+                local joint = plrJFolder:FindFirstChild(JOINT_NAMES[j_name]) :: Motor6D
+                if (not joint) then
+                    break
+                end
+                joint.C0 = joint.C0:Lerp((CFrame.new(joint.C0.Position) * cFrameArr[i]), NET_LERP_DT)
+            end
+            local jRoot = plrJFolder:FindFirstChild(JOINT_NAMES.ROOT) :: Motor6D
+            jRoot.C0 = jRoot.C0:Lerp(CFrame.new(posOffset), NET_LERP_DT)
+        end
+    end
+
     if (eventTime >= REPLICATION_DELTA) then
         eventTime = 0
         local posOffs, packQuatArr = packJointData()
@@ -239,15 +276,26 @@ local function update(dt: number)
     eventTime += dt
 end
 
-local function disconnectAllConnections()
-    for _, conn: RBXScriptConnection in pairs(connections) do
-        if (conn) then
+-- local function disconnectLocalConnections()
+--     for _, conn: RBXScriptConnection in pairs(connections) do
+--         if (conn) then
+--             conn:Disconnect()
+--         end
+--     end
+-- end
+
+-- Disconnects connections of a given player
+local function disconnectPlrCharConnections(plr: Player)
+    if (plrConnections[plr]) then
+        for _, conn: RBXScriptConnection in pairs(plrConnections[plr]) do
             conn:Disconnect()
         end
     end
 end
 
-local function createPlrConnections(plr: Player, charAC: RBXScriptConnection, charRC: RBXScriptConnection)
+-- Disconnects connection of a given player if they exist and registeres the new ones
+local function registerPlrCharConnections(plr: Player, charAC: RBXScriptConnection, charRC: RBXScriptConnection)
+    disconnectPlrCharConnections(plr)
     plrConnections[plr] = {
         charAddedConn = charAC,
         charRemovingConn = charRC
@@ -261,7 +309,7 @@ end
 -- Initializes this module or resets it, if initialized before
 function DynamicAnim.init()
 
-    local function onCharacterAdded(newChar: Model)
+    local function onLocalCharacterAdded(newChar: Model)
         local newPlrMdlRoot = newChar:FindFirstChild(CharacterDef.PLAYERMDL_ROOTPART_NAME)
         if (not (newPlrMdlRoot and newPlrMdlRoot:IsA("BasePart"))) then
             error("Playermodel root not found or is not a BasePart")
@@ -276,9 +324,44 @@ function DynamicAnim.init()
         end)
     end
 
-    local function onCharacterRemoving(char: Model)
-        disconnectAllConnections()
+    local function onLocalCharacterRemoving(char: Model)
+        -- reset the module
         DynamicAnim.init()
+    end
+
+    -- global players
+
+    local function onCharacterAdded(plr: Player, newChar: Model)
+        plrCharTbl[plr] = newChar
+    end
+
+    local function onCharacterRemoving(plr: Player, char: Model)
+        plrCharTbl[plr] = nil
+    end
+
+    local function onPlayerAdded(plr: Player)
+        -- only register other players
+        if (plr == Players.LocalPlayer) then
+            return
+        end
+        local plrCharAddedConn = plr.CharacterAdded:Connect(function(newChar: Model) 
+            onCharacterAdded(plr, newChar) 
+        end)
+        local plrCharRemovingConn = plr.CharacterRemoving:Connect(function(char: Model) 
+            onCharacterRemoving(plr, char) 
+        end)
+        registerPlrCharConnections(plr, plrCharAddedConn, plrCharRemovingConn)
+
+        if (plr.Character) then
+            onCharacterAdded(plr, plr.Character)
+        end
+    end
+
+    local function onPlayerRemoving(plr: Player)
+        disconnectPlrCharConnections(plr)
+        plrConnections[plr] = nil
+        plrTargetDataTbl[plr] = nil
+        plrCharTbl[plr] = nil
     end
 
     -- disconnect existing connections
@@ -288,14 +371,14 @@ function DynamicAnim.init()
         end
     end
 
-    connections.charAddedConn = Players.LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
-    connections.charRemovingConn = Players.LocalPlayer.CharacterRemoving:Connect(onCharacterRemoving)
-    connections.plrAddedConn = Players.PlayerAdded:Connect(function(plr: Player)
-        --plr.CharacterAdded:Connect()
-    end)
+    connections.charAddedConn = Players.LocalPlayer.CharacterAdded:Connect(onLocalCharacterAdded)
+    connections.charRemovingConn = Players.LocalPlayer.CharacterRemoving:Connect(onLocalCharacterRemoving)
 
-    for _, p: Player in pairs(Players:GetChildren()) do
-        
+    connections.plrAddedConn = Players.PlayerAdded:Connect(onPlayerAdded)
+    connections.plrRemovingConn = Players.PlayerRemoving:Connect(onPlayerRemoving)
+
+    for _, plr: Player in pairs(Players:GetChildren()) do
+        onPlayerAdded(plr)
     end
 
     Global.logInfo("Initialized dynamic animations module")
@@ -311,22 +394,27 @@ function DynamicAnim.updatePlrJointsFromData(plr:Player, dataString: string)
     if (not character) then
         warn(`{plr.Name} has no character`); return
     end
-    local jointFolder = character[CHAR_JOINTS_FOLDER_NAME] :: Folder
-    if (typeof(jointFolder) ~= "Instance" and not jointFolder:IsA("Folder")) then
-        warn(`{plr.Name} has no joints folder`); return
-    end
+    -- local jointFolder = character[CHAR_JOINTS_FOLDER_NAME] :: Folder
+    -- if (typeof(jointFolder) ~= "Instance" and not jointFolder:IsA("Folder")) then
+    --     warn(`{plr.Name} has no joints folder`); return
+    -- end
 
-    local posOffset, rotCFrameArr = unpackJointData(dataString)
+    local posOffset, cFrameArr = unpackJointData(dataString)
 
-    for i, j_name: string in JOINT_INDEX_ARR do
-        local joint = jointFolder:FindFirstChild(JOINT_NAMES[j_name]) :: Motor6D
-        if (not joint) then
-            return
-        end
-        joint.C0 = CFrame.new(joint.C0.Position) * rotCFrameArr[i]
-    end
-    local jRoot = jointFolder:FindFirstChild(JOINT_NAMES.ROOT) :: Motor6D
-    jRoot.C0 = CFrame.new(posOffset)
+    -- for i, j_name: string in JOINT_INDEX_ARR do
+    --     local joint = jointFolder:FindFirstChild(JOINT_NAMES[j_name]) :: Motor6D
+    --     if (not joint) then
+    --         return
+    --     end
+    --    joint.C0 = CFrame.new(joint.C0.Position) * cFrameArr[i]
+    -- end
+    -- local jRoot = jointFolder:FindFirstChild(JOINT_NAMES.ROOT) :: Motor6D
+    -- jRoot.C0 = CFrame.new(posOffset)
+
+    plrTargetDataTbl[plr] = {
+        posOffset = posOffset,
+        cFrameArr = cFrameArr
+    }
 end
 
 return DynamicAnim
