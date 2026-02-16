@@ -1,5 +1,8 @@
 -- Various utility functions involving vectors and numbers
 
+local VEC3_ZERO = Vector3.zero
+local VEC3_UP = Vector3.new(0, 1, 0)
+
 local DEFAULT_RATE = 0.5 -- balanced, as all things should be
 
 local MathUtil = {}
@@ -133,6 +136,82 @@ function MathUtil.clampVectorToCone(v: Vector3, n: Vector3, phi: number): Vector
     return uProj * mag
 end
 
+-- Returns the average of a given array of vectors
+function MathUtil.avgVecFromVecs(vecArr: {Vector3}): Vector3
+	local n = #vecArr
+	-- If there is no data, default to a horizontal plane
+	if (n == 0) then
+		warn("Empty vector array")
+		return VEC3_UP
+	elseif (n == 1) then
+		return vecArr[1]
+	end
+
+	local vecSum = VEC3_ZERO
+	for _,v in ipairs(vecArr) do
+		vecSum += v
+	end
+
+	return (vecSum * 1/n)
+end
+
+-- Calculates a virtual plane normal from given points
+function MathUtil.avgPlaneFromPoints(ptsArr: {Vector3}) : {centroid: Vector3, normal: Vector3}
+	local n = #ptsArr
+	local noPlane = {
+			centroid = VEC3_ZERO,
+			normal = VEC3_UP
+		}
+	if (n < 3) then
+		warn("No plane exists")
+		return noPlane
+	end
+
+	local sum = VEC3_ZERO
+	for i,vec: Vector3 in ipairs(ptsArr) do
+		sum += vec
+	end
+	local centroid = sum / n
+
+	local xx, xy, xz, yy, yz, zz = 0, 0, 0, 0, 0, 0
+	for i,vec: Vector3 in ipairs(ptsArr) do
+		local r : Vector3 = vec - centroid
+		xx += r.X * r.X
+		xy += r.X * r.Y
+		xz += r.X * r.Z
+		yy += r.Y * r.Y
+		yz += r.Y * r.Z
+		zz += r.Z * r.Z
+	end
+	local det_x = yy*zz - yz*yz
+    local det_y = xx*zz - xz*xz
+    local det_z = xx*yy - xy*xy
+
+	local det_max = math.max(det_x, det_y, det_z)
+	if (det_max <= 0) then
+		return noPlane
+	end
+
+	local dir: Vector3 = VEC3_ZERO
+	if (det_max == det_x) then
+		dir = Vector3.new(det_x, xz*yz - xy*zz, xy*yz - xz*yy)
+	elseif (det_max == det_y) then
+		dir = Vector3.new(xz*yz - xy*zz, det_y, xy*xz - yz*xx)
+	else
+		dir = Vector3.new(xy*yz - xz*yy, xy*xz - yz*xx, det_z)
+	end
+
+	-- Invert normal, if upside down
+	if (dir:Dot(VEC3_UP) < 0) then
+		dir = -dir
+	end
+
+	return {
+		centroid = centroid,
+		normal = dir.Unit
+	}
+end
+
 ------------------------------------------------------------------------------------------------------------------------
 -- Quaternions
 ------------------------------------------------------------------------------------------------------------------------
@@ -176,7 +255,7 @@ end
 
 -- Converts a Qaternion (set of numbers) to a CFrame
 function MathUtil.getCFrameFromQuaternion(x: number, y: number, z: number, w: number, position: Vector3?): CFrame
-	local pos = if (position == nil) then Vector3.zero else position
+	local pos = if (position == nil) then VEC3_ZERO else position
 
 	return CFrame.new(pos.X, pos.Y, pos.Z, x, y, z, w)
 end

@@ -94,6 +94,13 @@ function Simulation:getNormal(): Vector3
     return Vector3.zero
 end
 
+function Simulation:getIsGrounded(): boolean
+    if (self.currentState and self.currentState.grounded) then
+        return self.currentState.grounded
+    end
+    return false
+end
+
 function Simulation:getIsDashing(): boolean
     if (self.currentState) then
         return self.currentState.isDashing

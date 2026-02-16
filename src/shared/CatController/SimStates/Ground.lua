@@ -164,6 +164,8 @@ function Ground:stateLeave()
     for _, f: Constraint in self.forces do
         f.Enabled = false
     end
+
+    self.grounded = false
 end
 
 -- Handles jump input and configures posForce

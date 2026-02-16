@@ -1,7 +1,10 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+--!nocheck
+
 -- source / license:
 -- https://github.com/LPGhatguy/luanoid
 -- license: CC0, MIT
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Global = require(ReplicatedStorage.Shared.Global)
 
