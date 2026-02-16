@@ -3,7 +3,6 @@
     body rotation, foot-planting, head movement, etc.
 ]]
 
-local PartyEmulatorService = game:GetService("PartyEmulatorService")
 local RunService = game:GetService("RunService")
 local StarterPlayer = game:GetService("StarterPlayer")
 local Players = game:GetService("Players")
@@ -38,17 +37,16 @@ local VEC3_UP = Vector3.new(0, 1, 0)
 local FOOT_FLOOR_OFFS = 0.47
 
 local SCAN_Y_OFFS = 1.5
-local CAST_DIST = CharacterDef.PARAMS.LEGCOLL_SIZE.X * 3
-local HIP_HEIGHT = CharacterDef.PARAMS.LEGCOLL_SIZE.X
+local CAST_DIST = CharacterDef.PARAMS.LEGCOLL_SIZE.X * 4
 local SCAN_HIP_HEIGHT = CharacterDef.PARAMS.LEGCOLL_SIZE.X + SCAN_Y_OFFS
 local SCAN_HIP_RANGE_MAX = CharacterDef.PARAMS.LEGCOLL_SIZE.X + 4.5 + SCAN_Y_OFFS
 local SCAN_HIP_RANGE_MIN = 0.35 + SCAN_Y_OFFS
 local HIP_OFFS = 0.4
 
 local EVENT_DT = 0.025 -- time interval between event calls (0.025 sec ~ 40 FPS)
-local MAX_SLOPE_ANGLE = math.rad(45)
-local BALL_JOINT_ANG_LIM = 0--1.2
-local LERP_DT = 0.07
+local MAX_SLOPE_ANGLE = math.rad(50)
+local BALL_JOINT_ANG_LIM = 12.2
+local LERP_FAC = 0.07
 local NET_LERP_DT = 0.5 -- lerp for other players
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -190,9 +188,7 @@ local function unpackJointData(dataString: string): (Vector3, {CFrame})
     local offsVec = Vector3.new(numArr[1], numArr[2], numArr[3])
     local cFrameArr = {} :: {CFrame}
     local invalidData = false
-    -- if (offsVec.Magnitude > 2.4 or #numArr < NUM_PACKED_NUMBERS + 2) then 
-    --     invalidData = true 
-    -- end
+
     for i = 4, #numArr - 3, 4 do
         local qX = numArr[i]
         local qY = numArr[i+1]
@@ -216,14 +212,13 @@ end
 
 local function lerpJointAnglesCF(cf: CFrame, cf_base: CFrame, rVec: Vector3) : CFrame
     return cf * cf:ToObjectSpace(
-        cf:Lerp(cf_base * CFrame.fromEulerAnglesXYZ(rVec.X, rVec.Y, rVec.Z), LERP_DT)
+        cf:Lerp(cf_base * CFrame.fromEulerAnglesXYZ(rVec.X, rVec.Y, rVec.Z), LERP_FAC)
     )
 end
 
 -- Attaches IKControl components and physical constraints to the character rig for foot-planting simulation
 local function createOffsetAttOnInst(inst: Instance, offset: Vector3, isRelToPart: boolean?): Attachment
     local att = Instance.new("Attachment", inst)
-    att.Name = "RigAtt"
     if (isRelToPart) then
         att.Position = offset
     else
@@ -241,7 +236,7 @@ local function createCharacterIKRig(character: Model)
     end
 
     local function createHingeJoint(mdl: Model, joint: Motor6D, rotFac: number?)
-        local constraint = Instance.new("BallSocketConstraint", mdl)
+        local hinge = Instance.new("HingeConstraint", mdl)
         local hp0_att = Instance.new("Attachment", joint.Part0)
         local hp1_att = Instance.new("Attachment", joint.Part1)
         local rf = rotFac and rotFac or 0
@@ -250,12 +245,30 @@ local function createCharacterIKRig(character: Model)
         hp1_att.CFrame = joint.C1
         hp0_att.CFrame *= CFrame.Angles(0, rf, 0)
         hp1_att.CFrame *= CFrame.Angles(0, rf, 0)
-        constraint.LimitsEnabled = true
-        constraint.Restitution = 1
-        constraint.MaxFrictionTorque = 0
-        constraint.UpperAngle = BALL_JOINT_ANG_LIM
-        constraint.Attachment0 = hp0_att
-        constraint.Attachment1 = hp1_att
+        hinge.ActuatorType = Enum.ActuatorType.None
+        hinge.LimitsEnabled = true
+        hinge.LowerAngle = -180
+        hinge.UpperAngle = 0
+        hinge.Attachment0 = hp0_att
+        hinge.Attachment1 = hp1_att
+    end
+
+    local function createBallJoint(mdl: Model, joint: Motor6D, rotFac: number?)
+        local ballsocket = Instance.new("BallSocketConstraint", mdl)
+        local hp0_att = Instance.new("Attachment", joint.Part0)
+        local hp1_att = Instance.new("Attachment", joint.Part1)
+        local rf = rotFac and rotFac or 0
+        
+        hp0_att.CFrame = joint.C0
+        hp1_att.CFrame = joint.C1
+        hp0_att.CFrame *= CFrame.Angles(0, rf, 0)
+        hp1_att.CFrame *= CFrame.Angles(0, rf, 0)
+        ballsocket.LimitsEnabled = true
+        ballsocket.Restitution = 1
+        ballsocket.MaxFrictionTorque = 0
+        ballsocket.UpperAngle = BALL_JOINT_ANG_LIM
+        ballsocket.Attachment0 = hp0_att
+        ballsocket.Attachment1 = hp1_att
     end
 
     assert(character.PrimaryPart, "Character has no primary part")
@@ -263,10 +276,10 @@ local function createCharacterIKRig(character: Model)
 
     local vertOffs = VEC3_UP * 2.2
     local primaryPart = character.PrimaryPart
-    local fl_poleOffs = BASE_JOINT_OFFSETS[PART_NAMES.FL_WRIST] + Vector3.new(0, -1.2, 2)
-    local fr_poleOffs = BASE_JOINT_OFFSETS[PART_NAMES.FR_WRIST] + Vector3.new(0, -1.2, 2)
-    local rl_poleOffs = BASE_JOINT_OFFSETS[PART_NAMES.RL_ANKLE] + Vector3.new(0, -1.2, -2)
-    local rr_poleOffs = BASE_JOINT_OFFSETS[PART_NAMES.RR_ANKLE] + Vector3.new(0, -1.2, -2)
+    local fl_poleOffs = BASE_JOINT_OFFSETS[PART_NAMES.FL_WRIST] + Vector3.new(0, -2.2, 2)
+    local fr_poleOffs = BASE_JOINT_OFFSETS[PART_NAMES.FR_WRIST] + Vector3.new(0, -2.2, 2)
+    local rl_poleOffs = BASE_JOINT_OFFSETS[PART_NAMES.RL_ANKLE] + Vector3.new(0, -3.2, -2)
+    local rr_poleOffs = BASE_JOINT_OFFSETS[PART_NAMES.RR_ANKLE] + Vector3.new(0, -3.2, -2)
     -- fl
     local fl_wrist = character[PART_NAMES.FL_WRIST] :: BasePart
     local fl_arm = character[PART_NAMES.FL_ARM] :: BasePart
@@ -326,18 +339,21 @@ local function createCharacterIKRig(character: Model)
     iKControlTbl[PART_NAMES.RR_ANKLE] = rr_ik
 
     local invAng = math.rad(180)
-    createHingeJoint(character, joints[JOINT_NAMES.FL_LEG_0], invAng)
-    createHingeJoint(character, joints[JOINT_NAMES.FL_LEG_1])
-    createHingeJoint(character, joints[JOINT_NAMES.FL_LEG_2])
-    createHingeJoint(character, joints[JOINT_NAMES.FR_LEG_0])--, invAng)
+    createBallJoint(character, joints[JOINT_NAMES.FL_LEG_0], invAng)
+    createHingeJoint(character, joints[JOINT_NAMES.FL_LEG_1], invAng)
+    createBallJoint(character, joints[JOINT_NAMES.FL_LEG_2])
+
+    createBallJoint(character, joints[JOINT_NAMES.FR_LEG_0])--, invAng)
     createHingeJoint(character, joints[JOINT_NAMES.FR_LEG_1], invAng)
-    createHingeJoint(character, joints[JOINT_NAMES.FR_LEG_2], invAng)
-    createHingeJoint(character, joints[JOINT_NAMES.RL_LEG_0], invAng)
+    createBallJoint(character, joints[JOINT_NAMES.FR_LEG_2], invAng)
+
+    createBallJoint(character, joints[JOINT_NAMES.RL_LEG_0], invAng)
     createHingeJoint(character, joints[JOINT_NAMES.RL_LEG_1])
-    createHingeJoint(character, joints[JOINT_NAMES.RL_LEG_2])
-    createHingeJoint(character, joints[JOINT_NAMES.RR_LEG_0])--, invAng)
-    createHingeJoint(character, joints[JOINT_NAMES.RR_LEG_1], invAng)
-    createHingeJoint(character, joints[JOINT_NAMES.RR_LEG_2], invAng)
+    createBallJoint(character, joints[JOINT_NAMES.RL_LEG_2])
+
+    createBallJoint(character, joints[JOINT_NAMES.RR_LEG_0])--, invAng)
+    createHingeJoint(character, joints[JOINT_NAMES.RR_LEG_1])
+    createBallJoint(character, joints[JOINT_NAMES.RR_LEG_2], invAng)
 
     -- config IKControls
     for _, ik: IKControl in pairs(iKControlTbl) do
@@ -347,35 +363,37 @@ local function createCharacterIKRig(character: Model)
 
     fl_ik.EndEffector = fl_wrist
     fl_ik.ChainRoot = fl_bicep
-    --fl_ik.Pole = fl_pole
+    fl_ik.Pole = fl_pole
     fl_ik.Target = fl_targ
 
     fr_ik.EndEffector = fr_wrist
     fr_ik.ChainRoot = fr_bicep
-    --fr_ik.Pole = fr_pole
+    fr_ik.Pole = fr_pole
     fr_ik.Target = fr_targ
 
     rl_ik.EndEffector = rl_ankle
     rl_ik.ChainRoot = rl_thigh
-    --rl_ik.Pole = rl_pole
+    rl_ik.Pole = rl_pole
     rl_ik.Target = rl_targ
     
     rr_ik.EndEffector = rr_ankle
     rr_ik.ChainRoot = rr_thigh
-    --rr_ik.Pole = rr_pole
+    rr_ik.Pole = rr_pole
     rr_ik.Target = rr_targ
 end
 
+-- TEMP DEBUG TEMP DEBUG ---------------------------------------
 olddebugpartlist = {}
 -- Calculates foot-planting, playermodel root offset and rotation from 4 contact points
 local function calcDynamicModelTransforms(grounded: boolean)
 
-        for i,v in pairs(olddebugpartlist) do
+    -- TEMP DEBUG TEMP DEBUG ---------------------------------------
+    for i,v in pairs(olddebugpartlist) do
         if (v) then
             v:Destroy()
         end
     end
-
+    -- TEMP DEBUG TEMP DEBUG ---------------------------------------
 
     if (not (plrMdlRoot and legSensAttTbl and legTargetAttTbl and iKControlTbl)) then
         error("IK rig not initialized")
@@ -420,15 +438,15 @@ local function calcDynamicModelTransforms(grounded: boolean)
         posYArr[#posYArr + 1] = newGndPosY
 
         local targetAtt = legTargetAttTbl[nameInd]
-        local adjTargetPosY = newGndPosY
-        -- if (math.abs(adjTargetPosY - att.WorldPosition.Y) > SCAN_HIP_HEIGHT) then
-        --     adjTargetPosY = att.WorldPosition.Y - SCAN_HIP_HEIGHT
-        -- end
         targetAtt.WorldPosition = Vector3.new(
-            targetAtt.WorldPosition.X, adjTargetPosY, targetAtt.WorldPosition.Z
+            targetAtt.WorldPosition.X, newGndPosY, targetAtt.WorldPosition.Z
         )
 
-        local function debugpart()
+        -- TEMP DEBUG TEMP DEBUG ---------------------------------------
+        local function debugpart(bool: boolean)
+            if (bool) then
+                return
+            end
             local p = Instance.new("Part", targetAtt)
             p.CanCollide = false
             p.Size = 0.3 * Vector3.one
@@ -436,7 +454,8 @@ local function calcDynamicModelTransforms(grounded: boolean)
             p.Position = targetAtt.WorldPosition
             olddebugpartlist[#olddebugpartlist + 1] = p
         end
-        debugpart()
+        debugpart(true)
+        -- TEMP DEBUG TEMP DEBUG ---------------------------------------
     end
 
     if (#posYArr < 4) then warn("Missing posArr entries"); return end
@@ -462,7 +481,7 @@ local function calcDynamicModelTransforms(grounded: boolean)
     -- end
 
     local planeData = MathUtil.avgPlaneFromPoints(posArr)
-    local centroid = lowestGndPosY * VEC3_UP--planeData.centroid
+    local centroid = planeData.centroid
     local normal = planeData.normal
     if (normal == VEC3_ZERO) then warn("Invalid normal vector"); return end
 
@@ -477,14 +496,6 @@ local function calcDynamicModelTransforms(grounded: boolean)
         newRootOffsCF = baseRootOffsCF
     end
 
-    -- adjust leg offsets
-    -- for nameInd: string, targetAtt: Attachment in pairs(legTargetAttTbl) do
-    --     local newOffs = posMap[nameInd] + FOOT_FLOOR_OFFS + baseRootOffsCF
-    --     targetAtt.WorldPosition = Vector3.new(
-    --         targetAtt.WorldPosition.X, posMap[nameInd] + FOOT_FLOOR_OFFS, targetAtt.WorldPosition.Z
-    --     )
-    -- end
-
     -- compute slope rotation
     local rootRightVec = plrMdlRoot.CFrame.RightVector
     local rootLookVec = plrMdlRoot.CFrame.LookVector
@@ -494,13 +505,17 @@ local function calcDynamicModelTransforms(grounded: boolean)
         (rootLookVec:Cross(crossDirVec)):Dot(rootRightVec),
         rootLookVec:Dot(crossDirVec)
     )
-    if (not grounded) then
-        --diffAngle = 0
-    end
     diffAngle = math.clamp(diffAngle, -MAX_SLOPE_ANGLE, MAX_SLOPE_ANGLE)
-    local newRootCF = baseRootOffsCF * CFrame.Angles(diffAngle, 0, 0)
 
-    jRoot.C0 = jRoot.C0:Lerp(newRootCF * newRootOffsCF, LERP_DT)
+    local horiVel = Vector3.new(
+        primaryPart.AssemblyLinearVelocity.X, 0, primaryPart.AssemblyLinearVelocity.Z
+    ).Magnitude
+    math.max(1, horiVel)
+    local speedLerpDt =  (1 / horiVel)
+    speedLerpDt = math.clamp(speedLerpDt, 0.001, 0.05)
+
+    local newRootCF = baseRootOffsCF * CFrame.Angles(diffAngle, 0, 0)
+    jRoot.C0 = jRoot.C0:Lerp(newRootCF * newRootOffsCF, speedLerpDt)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -564,11 +579,12 @@ local function update(dt: number)
 
     -- footplanting
     if (stateId == PlayerStateId.GROUNDED) then
-        local assemblyLinVelFac = math.max(1, primaryPart.AssemblyLinearVelocity.Magnitude * 1.15)
+        local assemblyLinVelFac = math.max(1, primaryPart.AssemblyLinearVelocity.Magnitude * 1.45)
         local weight = math.clamp((1 / assemblyLinVelFac), 0, 1)
         if (weight < 0.1 or not grounded) then 
             weight = 0 
         end
+
         for _, ikc: IKControl in pairs(iKControlTbl) do
             ikc.Weight = weight
         end
