@@ -82,18 +82,22 @@ local PART_NAMES = {
     FL_BICEP = "BicepTopLeft",
     FL_ARM = "ArmTopLeft",
     FL_WRIST = "WristTopLeft",
+    FL_PAW = "PawLeftFront",
     -- front right
     FR_BICEP = "BicepTopRight",
     FR_ARM = "ArmTopRight",
     FR_WRIST = "WristTopRight",
+    FR_PAW = "PawRightFront",
     -- rear left
     RL_THIGH = "ThighLeft",
     RL_LEG = "LegTopLeft",
     RL_ANKLE = "AnkleTopLeft",
+    RL_PAW = "PawLeftBack",
     -- rear right
     RR_THIGH = "ThighRight",
     RR_LEG = "LegTopRight",
     RR_ANKLE = "AnkleTopRight",
+    RR_PAW = "PawRightBack",
 }
 
 local JointMap = table.freeze{
