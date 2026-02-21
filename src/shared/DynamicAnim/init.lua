@@ -39,11 +39,13 @@ local RAD_180 = math.rad(180)
 
 local SCAN_Y_OFFS = 1.5
 local CAST_DIST = CharacterDef.PARAMS.LEGCOLL_SIZE.X * 5.5
-local HIP_HEIGHT = CharacterDef.PARAMS.LEGCOLL_SIZE.X - 0.15
+local HIP_HEIGHT = CharacterDef.PARAMS.LEGCOLL_SIZE.X - 0.085
 local SCAN_HIP_HEIGHT = HIP_HEIGHT + SCAN_Y_OFFS
 local SCAN_RANGE_MAX = SCAN_Y_OFFS + 25.0
-local SHOULDER_RANGE = SCAN_Y_OFFS + 1.15
-local TARGET_FRONT_Y_OFFS = 0.35
+-- defines min (closest to body) position for foot planting
+local SHOULDER_RANGE = SCAN_Y_OFFS + 1.22
+-- ankle offsets from the computed hit points
+local TARGET_FRONT_Y_OFFS = 0.375
 local TARGET_REAR_Y_OFFS = 0.675
 -- whether to compute a plane based on the smallest sum of foot scan points of either side of root joint
 -- works well when you don't want floating limbs when only one is touching a step
@@ -52,7 +54,7 @@ local USE_LOWEST_PLANE = false
 local EVENT_DT = 0.025 -- time interval between event calls (0.025 sec ~ 40 FPS)
 local MAX_SLOPE_ANGLE = math.rad(45)
 local MAX_ROOT_OFFS = 2
-local LERP_FAC = 0.045--0.07
+local LERP_FAC = 0.045--0.07 0.045-
 local NET_LERP_DT = 0.5 -- lerp for other players
 local IK_CONTROL_SMOOTH_TIME = 0.1
 
@@ -250,6 +252,7 @@ local function createOffsetAttOnInst(inst: Instance, offset: Vector3, isRelToPar
     return att
 end
 
+-- TODO: create IKRig on server and use components here for replication
 local function createCharacterIKRig(character: Model)
 
     local function createIKControl(mdl: Model, name: string): IKControl
@@ -302,19 +305,15 @@ local function createCharacterIKRig(character: Model)
     local vertOffs = VEC3_UP * SCAN_Y_OFFS
     local primaryPart = character.PrimaryPart
     -- fl
-    --local fl_paw = character[PART_NAMES.FL_PAW] :: BasePart
     local fl_wrist = character[PART_NAMES.FL_WRIST] :: BasePart
     local fl_bicep = character[PART_NAMES.FL_BICEP] :: BasePart
     -- fr
-    --local fr_paw = character[PART_NAMES.FL_PAW] :: BasePart
     local fr_wrist = character[PART_NAMES.FR_WRIST] :: BasePart
     local fr_bicep = character[PART_NAMES.FR_BICEP] :: BasePart
     -- rl
-    --local rl_paw = character[PART_NAMES.RL_PAW] :: BasePart
     local rl_ankle = character[PART_NAMES.RL_ANKLE] :: BasePart
     local rl_thigh = character[PART_NAMES.RL_THIGH] :: BasePart
     -- rr
-    --local rr_paw = character[PART_NAMES.RR_PAW] :: BasePart
     local rr_ankle = character[PART_NAMES.RR_ANKLE] :: BasePart
     local rr_thigh = character[PART_NAMES.RR_THIGH] :: BasePart
 
@@ -451,10 +450,6 @@ local function calcDynamicModelTransforms(grounded: boolean)
     -- update model ground offset
     for nameInd: string, sensAtt: Attachment in pairs(legSensAttTbl) do
 
-        local ray = Workspace:Raycast(
-            sensAtt.WorldPosition, -VEC3_UP * CAST_DIST, raycastParams
-        ) :: RaycastResult
-
         -- determine pos vector and offset with limits
         local castPosY = sensAtt.WorldPosition.Y
         local newGndPosY = castPosY - SCAN_RANGE_MAX
@@ -463,6 +458,12 @@ local function calcDynamicModelTransforms(grounded: boolean)
         local currSensOffsCF = CFrame.new(BASE_SENSOR_OFFSETS[nameInd])
         local rootRelShoulderCF = (rootJoint.Part0.CFrame * rootJoint.C0) * currSensOffsCF
         local defaulLegHeight = primaryPart.Position.Y - SCAN_HIP_HEIGHT
+
+        -- raycasting
+        -- TODO: cast from knees and use foot lifting logic to determine animation weight
+        local ray = Workspace:Raycast(
+            sensAtt.WorldPosition, -VEC3_UP * CAST_DIST, raycastParams
+        ) :: RaycastResult
 
         if (ray) then
             if (ray.Distance < SCAN_RANGE_MAX) then
@@ -494,7 +495,7 @@ local function calcDynamicModelTransforms(grounded: boolean)
         )
 
         -- set relative orientation of current foot joint
-        -- TODO: make feet align angle limited with normal
+        -- TODO: make feet align with angle limited normal
         local jFoot = joints[FOOT_JOINT_MAP[nameInd]]
         local jFootPart0CF = jFoot.Part0.CFrame
         local jointWorldCF = jFootPart0CF * jFoot.C0 -- world space CF
@@ -510,7 +511,7 @@ local function calcDynamicModelTransforms(grounded: boolean)
 
     if (#posYArr < 4) then warn("Missing posArr entries"); return end
 
-    -- setup a plane without z-axis bank, if enabled
+    -- modify contact points for setting up a minimal height plane without relative z-axis bank, if enabled
     local planePointsArr: {Vector3}
     if (USE_LOWEST_PLANE) then
         local fl_vec = posMap[PART_NAMES.FL_WRIST]
@@ -534,13 +535,16 @@ local function calcDynamicModelTransforms(grounded: boolean)
         planePointsArr = posArr
     end
 
+    -- generate virtual plane and calculate real centroid based on root joint offset
     local planeData = MathUtil.avgPlaneFromPoints(planePointsArr)
     local centroid = planeData.centroid
     local normal = planeData.normal
     if (normal == VEC3_ZERO) then warn("Invalid normal vector"); return end
 
     -- compute joint offset CFrame
-    local rootWorldOffsY = primaryPart.Position.Y - (centroid.Y + HIP_HEIGHT)
+    local jRootWorldPos = (jRoot.Part0.CFrame * jRoot.C0).Position
+    local corrCentroidHeight = MathUtil.planeHeightAtPoint(centroid, normal, jRootWorldPos)
+    local rootWorldOffsY = primaryPart.Position.Y - (corrCentroidHeight + HIP_HEIGHT)
     rootWorldOffsY = math.clamp(rootWorldOffsY, -MAX_ROOT_OFFS, MAX_ROOT_OFFS)
     local rootWorldOffsetCF = CFrame.new(-VEC3_UP * rootWorldOffsY)
 
@@ -565,12 +569,15 @@ local function calcDynamicModelTransforms(grounded: boolean)
 
     -- compute lerp speed
     local horiVel = Vector3.new(
-        primaryPart.AssemblyLinearVelocity.X, 0, primaryPart.AssemblyLinearVelocity.Z
+        primaryPart.AssemblyLinearVelocity.X, 0, primaryPart.AssemblyLinearVelocity.Z * 1.2
     ).Magnitude
     math.max(1, horiVel)
     local speedLerpDt =  (1 / horiVel)
-    speedLerpDt = math.clamp(speedLerpDt, 0.001, 0.05)
-
+    speedLerpDt = math.clamp(speedLerpDt, 0.01, LERP_FAC)
+    if (not grounded) then
+        speedLerpDt = LERP_FAC
+    end
+    
     -- apply root transform
     jRoot.C0 = jRoot.C0:Lerp(totalTargetRootCF, speedLerpDt)
 end
@@ -654,10 +661,13 @@ local function update(dt: number)
                 if (not joint) then
                     break
                 end
-                joint.C0 = joint.C0:Lerp((CFrame.new(joint.C0.Position) * cFrameArr[i]), NET_LERP_DT)
+
+                local targetCF = CFrame.new(joint.C0.Position) * cFrameArr[i]
+                joint.C0 = joint.C0:Lerp(targetCF, NET_LERP_DT)
             end
             local jRoot = plrJFolder:FindFirstChild(JOINT_NAMES.ROOT) :: Motor6D
-            jRoot.C0 = jRoot.C0:Lerp(CFrame.new(posOffset), NET_LERP_DT)
+            local rootOffsCF =  CFrame.new(posOffset)
+            jRoot.C0 = jRoot.C0:Lerp(rootOffsCF * jRoot.C0.Rotation, NET_LERP_DT)
         end
     end
 

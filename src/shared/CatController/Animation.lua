@@ -57,6 +57,9 @@ function Animation.new(simulation)
 	self.animationController = self.character:FindFirstChildOfClass("AnimationController")
 	self.animator = self.animationController:FindFirstChildOfClass("Animator")
 
+	assert(self.animationController:IsA("AnimationController"), "No AnimationController found")
+	assert(self.animator:IsA("Animator"), "No Animator found")
+
 	self.currentState = AnimationStateId.IDLE
 	self.animTracks = {} :: {[string]: AnimationTrack}
 

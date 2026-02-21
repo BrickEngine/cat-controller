@@ -212,6 +212,12 @@ function MathUtil.avgPlaneFromPoints(ptsArr: {Vector3}) : {centroid: Vector3, no
 	}
 end
 
+-- Returns the height of a plane at any given point 
+function MathUtil.planeHeightAtPoint(centroid: Vector3, normal: Vector3, loc: Vector3): number
+	local x, z = loc.X, loc.Z
+	return centroid.Y - ((normal.X * (x - centroid.X) + normal.Z * (z - centroid.Z)) / normal.Y)
+end
+
 ------------------------------------------------------------------------------------------------------------------------
 -- Quaternions
 ------------------------------------------------------------------------------------------------------------------------
@@ -224,19 +230,19 @@ function MathUtil.createQuaternionFromCFrame(cframe: CFrame): (number, number, n
 	local x, y, z, w
 
 	local trace = m00 + m11 + m22
-	if trace > 0 then
+	if (trace > 0) then
 		local s = math.sqrt(trace + 1) * 2
 		x = (m21 - m12) / s
 		y = (m02 - m20) / s
 		z = (m10 - m01) / s
 		w = 0.25 * s
-	elseif m00 > m11 and m00 > m22 then
+	elseif (m00 > m11 and m00 > m22) then
 		local s = math.sqrt(1 + m00 - m11 - m22) * 2
 		x = 0.25 * s
 		y = (m01 + m10) / s
 		z = (m02 + m20) / s
 		w = (m21 - m12) / s
-	elseif m11 > m22 then
+	elseif (m11 > m22) then
 		local s = math.sqrt(1 + m11 - m00 - m22) * 2
 		x = (m01 + m10) / s
 		y = 0.25 * s
@@ -255,8 +261,10 @@ end
 
 -- Converts a Qaternion (set of numbers) to a CFrame
 function MathUtil.getCFrameFromQuaternion(x: number, y: number, z: number, w: number, position: Vector3?): CFrame
-	local pos = if (position == nil) then VEC3_ZERO else position
+	local pos = position or VEC3_ZERO
 
+	-- local mag = math.sqrt(x*x + y*y + z*z * w*w)
+	-- x, y, z, w = x/mag, y/mag, z/mag, w/mag
 	return CFrame.new(pos.X, pos.Y, pos.Z, x, y, z, w)
 end
 
