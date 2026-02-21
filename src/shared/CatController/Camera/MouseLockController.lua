@@ -1,12 +1,14 @@
 local PlayersService = game:GetService("Players")
 local ContextActionService = game:GetService("ContextActionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local Settings = UserSettings()	-- ignore warning
 local GameSettings = Settings.GameSettings
 
 local CameraUtils = require(script.Parent.CamUtils)
+local ContextAction = require(ReplicatedStorage.Shared.Enums.ContextAction)
 
-local CONTEXT_ACTION_NAME = "MouseLockSwitchAction"
+local CONTEXT_ACTION_NAME = ContextAction.LOCK_SWITCH_ACTION
 local MOUSELOCK_ACTION_PRIORITY = Enum.ContextActionPriority.Medium.Value
 local LOCK_KEY = Enum.KeyCode.Tab
 
@@ -23,7 +25,8 @@ function MouseLockController.new()
 
 	self.mouseLockToggledEvent = Instance.new("BindableEvent")
 
-	-- Watch for changes to user's ControlMode and ComputerMovementMode settings and update the feature availability accordingly
+	-- Watch for changes to user's ControlMode and ComputerMovementMode settings and update 
+	-- the feature availability accordingly
 	GameSettings.Changed:Connect(function(property)
 		if property == "ControlMode" or property == "ComputerMovementMode" then
 			self:updateMouseLockAvailability()

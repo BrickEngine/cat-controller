@@ -1,13 +1,9 @@
 local PlayersService = game:GetService("Players")
 
-local tweenAcceleration = math.rad(220) -- Radians/Second^2
-local tweenSpeed = math.rad(0)          -- Radians/Second
-local tweenMaxSpeed = math.rad(250)     -- Radians/Second
+local INITIAL_ANGLE = CFrame.fromOrientation(math.rad(-15.0), 0, 0)
+local SUBJECT_POS_OFFS = Vector3.new(0, 2.0, 0)
 
-local INITIAL_CAMERA_ANGLE = CFrame.fromOrientation(math.rad(-15), 0, 0)
-local SMOOTH_DELTA = 0.08
-
-local Util = require(script.Parent.CamUtils)
+--local Util = require(script.Parent.CamUtils)
 local CamInput = require(script.Parent.CamInput)
 local BaseCam = require(script.Parent.BaseCam)
 
@@ -55,15 +51,15 @@ function ClassicCamera:update(dt)
 	if self.resetCameraAngle then
 		local rootPart: BasePart = self:getRootPart()
 		if rootPart then
-			overrideCameraLookVector = (rootPart.CFrame * INITIAL_CAMERA_ANGLE).LookVector
+			overrideCameraLookVector = (rootPart.CFrame * INITIAL_ANGLE).LookVector
 		else
-			overrideCameraLookVector = INITIAL_CAMERA_ANGLE.LookVector
+			overrideCameraLookVector = INITIAL_ANGLE.LookVector
 		end
 		self.resetCameraAngle = false
 	end
 
 	local player = PlayersService.LocalPlayer
-	local cameraSubject = camera.CameraSubject
+	--local cameraSubject = camera.CameraSubject
 
 	if self.lastUpdate == nil or dt > 1 then
 		self.lastCameraTransform = nil
@@ -84,13 +80,9 @@ function ClassicCamera:update(dt)
 
 	if subjectPosition and player and camera then
 		local zoom = self:getCameraToSubjectDistance()
-		local currCamVel = self.camVelocity
+		zoom = math.max(zoom, 0.5)
 
-		if zoom < 0.5 then
-			zoom = 0.5
-		end
-
-		newCameraFocus = CFrame.new(subjectPosition)
+		newCameraFocus = CFrame.new(subjectPosition + SUBJECT_POS_OFFS)
 		local newLookVector = self:calculateNewLookVectorFromArg(overrideCameraLookVector, rotateInput)
 		newCameraCFrame = CFrame.lookAlong(newCameraFocus.Position - (zoom * newLookVector), newLookVector)
 

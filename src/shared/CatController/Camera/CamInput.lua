@@ -1,7 +1,6 @@
 local UserGameSettings = UserSettings():GetService("UserGameSettings")
 local ContextActionService = game:GetService("ContextActionService")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
@@ -95,10 +94,10 @@ local function isInDynamicThumbstickArea(pos: Vector3): boolean
 		pos.Y <= posBottomRight.Y
 end
 
-local worldDt = 1/60 -- remove with FFlagUserCameraInputDt
-RunService.Stepped:Connect(function(_, _worldDt)
-	worldDt = _worldDt
-end)
+-- local worldDt = 1/60 -- remove with FFlagUserCameraInputDt
+-- RunService.Stepped:Connect(function(_, _worldDt)
+-- 	worldDt = _worldDt
+-- end)
 
 local CameraInput = {}
 
@@ -122,7 +121,7 @@ do
 		Thumbstick2 = Vector2.new(),
 	}
 	local keyboardState = {
-		LeftControl = 0,
+		LeftShift = 0,
 		Left = 0,
 		Right = 0,
 		I = 0,
@@ -157,7 +156,7 @@ do
 		local kPointerAction = mouseState.Pan
 		local kTouch = adjustTouchPitchSensitivity(touchState.Move)
 
-		if (keyboardState.LeftControl == 1) then
+		if (keyboardState.LeftShift == 1) then
 			kKeyboard *= ROTATION_SPEED_MULT
 		end
 		if (disableKeyboardRotation) then
@@ -381,7 +380,7 @@ do
 					keypress,
 					false,
 					CAMERA_INPUT_PRIORITY,
-					Enum.KeyCode.LeftControl,
+					Enum.KeyCode.LeftShift,
 					Enum.KeyCode.Left,
 					Enum.KeyCode.Right,
 					Enum.KeyCode.I,

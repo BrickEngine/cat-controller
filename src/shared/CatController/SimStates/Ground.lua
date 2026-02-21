@@ -1,10 +1,11 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local SoundService = game:GetService("SoundService")
 local Workspace = game:GetService("Workspace")
 
 local controller = script.Parent.Parent
 local CharacterDef = require(ReplicatedStorage.Shared.CharacterDef)
 local PlayerStateId = require(ReplicatedStorage.Shared.Enums.PlayerStateId)
+local AnimationStateId = require(ReplicatedStorage.Shared.Enums.AnimationStateId)
+local SoundManager = require(ReplicatedStorage.Shared.SoundManager)
 local InputManager = require(controller.InputManager)
 local BaseState = require(controller.SimStates.BaseState)
 local PhysCheck = require(controller.Common.PhysCheck)
@@ -13,9 +14,8 @@ local PhysCheck = require(controller.Common.PhysCheck)
 local GND_WALK_SPEED = 1
 local GND_RUN_SPEED = 2.5
 local GND_CLEAR = 0.5
-local MAX_INCLINE = math.rad(70) -- rad
 local JUMP_HEIGHT = 6 -- studs
-local JUMP_DELAY = 0.28
+local JUMP_DELAY = 0.18
 local MOVE_DAMP = 5
 local MOVE_DT = 0.05
 local ROT_DT = 0.25 -- lower value ~ slower rotation
@@ -23,12 +23,12 @@ local ROT_DT = 0.25 -- lower value ~ slower rotation
 -- animation speeds / threshold
 local ANIM_TH_WALK = 0.1 -- studs/s
 local ANIM_TH_TROT = 15 -- studs/s
-local ANIM_TH_RUN = 22 -- studs/s
-local ANIM_SPEED_FAC_WALK = 0.3
-local ANIM_SPEED_FAC_RUN = 0.08
+local ANIM_TH_RUN = 50 -- studs/s
+local ANIM_SPEED_FAC_WALK = 0.07
+local ANIM_SPEED_FAC_RUN = 0.12
 
 -- misc
-local DO_QUAKE_JUMP_SOUND = true
+local DO_JUMP_SOUND = true
 
 -- constants
 local PHYS_RADIUS = CharacterDef.PARAMS.LEGCOLL_SIZE.Z * 0.5
@@ -37,19 +37,13 @@ local VEC3_ZERO = Vector3.zero
 local VEC3_UP = Vector3.new(0, 1, 0)
 local PI2 = math.pi*2
 
--- local vars
--- local ray_params_gnd = RaycastParams.new()
--- ray_params_gnd.CollisionGroup = CollisionGroup.PLAYER
--- ray_params_gnd.FilterType = Enum.RaycastFilterType.Exclude
--- ray_params_gnd.IgnoreWater = true
--- ray_params_gnd.RespectCanCollide = true
-
 local lastTargetAng = 0
 local j_lastDown = false
 local j_Delay = 0
 local lastYPos = 0
-local jumped = false
+local hasJumped = false
 local jumpSignal = false
+local offGroundTime = 0
 
 -- Create required physics constraints
 local function createForces(mdl: Model): {[string]: Instance}
@@ -99,19 +93,6 @@ local function getCFrameRelMoveVec(camCFrame: CFrame): Vector3
             camCFrame.LookVector.X, 0, camCFrame.LookVector.Z
         ).Unit
     ):VectorToWorldSpace(InputManager:getMoveVec())
-end
-
-local function projectOnPlaneVec3(v: Vector3, norm: Vector3)
-    local sqrMag = norm:Dot(norm)
-    if (sqrMag < 0.01) then
-        return v
-    end
-    local dot = v:Dot(norm)
-    return Vector3.new(
-        v.X - norm.X * dot / sqrMag,
-        v.Y - norm.Y * dot / sqrMag,
-        v.Z - norm.Z * dot / sqrMag
-    )
 end
 
 local function calcWalkAccel(moveVec: Vector3, rootPos: Vector3, currVel: Vector3, normal: Vector3, dt: number): Vector3
@@ -173,7 +154,7 @@ function Ground:stateEnter()
     self.forces.moveForce.Enabled = true
     self.forces.rotForce.Enabled = true
 
-    self.animation:setState("Idle")
+    self.animation:setState(AnimationStateId.IDLE, true)
 end
 
 function Ground:stateLeave()
@@ -183,6 +164,8 @@ function Ground:stateLeave()
     for _, f: Constraint in self.forces do
         f.Enabled = false
     end
+
+    self.grounded = false
 end
 
 -- Handles jump input and configures posForce
@@ -211,19 +194,16 @@ function Ground:updateJump(dt: number, override: boolean?)
 
     if (self.grounded) then
         if ((j_Delay <= 0) or
-            (jumped and currRootPos.Y < lastYPos)
+            (hasJumped and currRootPos.Y < lastYPos)
         ) then
             self.forces.posForce.Enabled = true
-            jumped = false
+            hasJumped = false
         end
 
         -- execute jump
         if (jumpSignal or override) then
-            if (DO_QUAKE_JUMP_SOUND) then
-                local s = Instance.new("Sound")
-                s.SoundId = "rbxassetid://5466166437"
-                SoundService:PlayLocalSound(s)
-                s:Destroy()
+            if (DO_JUMP_SOUND and not override) then
+                SoundManager.updateGlobalSound(SoundManager.soundItem.JUMP, true)
             end
 
             self.forces.posForce.Enabled = false
@@ -231,7 +211,7 @@ function Ground:updateJump(dt: number, override: boolean?)
             local jumpInitVel: number = math.sqrt(Workspace.Gravity * 2 * JUMP_HEIGHT)
             primaryPart:ApplyImpulse(
                 VEC3_UP * (jumpInitVel - primaryPart.AssemblyLinearVelocity.Y) * primaryPart.AssemblyMass)
-            jumped = true
+            hasJumped = true
         end
     end
 
@@ -249,9 +229,6 @@ function Ground:updateMove(dt: number, moveDirVec: Vector3, normal: Vector3, nor
     local accelVec = calcWalkAccel(
         moveDirVec, currPos, currHoriVel, normal, MOVE_DT
     )
-    if (normalAngle > MAX_INCLINE) then
-        accelVec = projectOnPlaneVec3(accelVec * 0.1, normal)
-    end
 
     self.forces.moveForce.Force = accelVec * mass
 
@@ -312,32 +289,48 @@ function Ground:update(dt: number)
     -- update horizonal movement
     self:updateMove(dt, moveDirVec, groundData.normal, groundData.normalAngle)
 
+    -- update jump and manage posForce
+    self:updateJump(dt)
+
     -- manage posForce
     if (self.grounded) then
         local targetPosY = groundData.gndHeight + HIP_HEIGHT
 
+        if (DO_JUMP_SOUND and offGroundTime >= 0.2) then
+            SoundManager.updateGlobalSound(SoundManager.soundItem.FLOOR_HIT, true)
+        end
+
         -- scale force with cubed vertical velocity to compensate for high falls
         self.forces.posForce.MaxAxesForce = mass * (grav * 20 + currVel.Y * currVel.Y) * VEC3_UP
         self.forces.posForce.Position = Vector3.new(0, targetPosY, 0)
-
-        self:updateJump(dt)
     else
         self.forces.posForce.Enabled = false
     end
 
     -- update animation
-    if (currHoriVel.Magnitude >= ANIM_TH_RUN) then
-        self.animation:setState("Run")
+    
+    if (not self.grounded and (offGroundTime >= 0.2 and currVel.Y < 0)) then
+        self.animation:setState(AnimationStateId.FALL, false, 0.2)
+    elseif (not self.grounded and currVel.Y > 0) then
+        self.animation:setState(AnimationStateId.JUMP, false)
+    elseif (currHoriVel.Magnitude >= ANIM_TH_RUN) then
+        self.animation:setState(AnimationStateId.RUN, true)
         self.animation:adjustSpeed(currHoriVel.Magnitude * ANIM_SPEED_FAC_RUN)
     elseif (currHoriVel.Magnitude >= ANIM_TH_TROT) then
-        self.animation:setState("Walk")
+        self.animation:setState(AnimationStateId.TROT, true)
         self.animation:adjustSpeed(currHoriVel.Magnitude * ANIM_SPEED_FAC_WALK)
     elseif (currHoriVel.Magnitude >= ANIM_TH_WALK) then
-        self.animation:setState("Walk")
+        self.animation:setState(AnimationStateId.WALK, true)
         self.animation:adjustSpeed(currHoriVel.Magnitude * ANIM_SPEED_FAC_WALK)
     else
-        self.animation:setState("Idle")
+        self.animation:setState(AnimationStateId.IDLE, true)
         self.animation:adjustSpeed(1)
+    end
+
+    if (not self.grounded) then
+        offGroundTime += dt
+    else
+        offGroundTime = 0
     end
 end
 

@@ -1,5 +1,8 @@
 -- Various utility functions involving vectors and numbers
 
+local VEC3_ZERO = Vector3.zero
+local VEC3_UP = Vector3.new(0, 1, 0)
+
 local DEFAULT_RATE = 0.5 -- balanced, as all things should be
 
 local MathUtil = {}
@@ -133,5 +136,136 @@ function MathUtil.clampVectorToCone(v: Vector3, n: Vector3, phi: number): Vector
     return uProj * mag
 end
 
+-- Returns the average of a given array of vectors
+function MathUtil.avgVecFromVecs(vecArr: {Vector3}): Vector3
+	local n = #vecArr
+	-- If there is no data, default to a horizontal plane
+	if (n == 0) then
+		warn("Empty vector array")
+		return VEC3_UP
+	elseif (n == 1) then
+		return vecArr[1]
+	end
+
+	local vecSum = VEC3_ZERO
+	for _,v in ipairs(vecArr) do
+		vecSum += v
+	end
+
+	return (vecSum * 1/n)
+end
+
+-- Calculates a virtual plane normal from given points
+function MathUtil.avgPlaneFromPoints(ptsArr: {Vector3}) : {centroid: Vector3, normal: Vector3}
+	local n = #ptsArr
+	local noPlane = {
+			centroid = VEC3_ZERO,
+			normal = VEC3_UP
+		}
+	if (n < 3) then
+		warn("No plane exists")
+		return noPlane
+	end
+
+	local sum = VEC3_ZERO
+	for i,vec: Vector3 in ipairs(ptsArr) do
+		sum += vec
+	end
+	local centroid = sum / n
+
+	local xx, xy, xz, yy, yz, zz = 0, 0, 0, 0, 0, 0
+	for i,vec: Vector3 in ipairs(ptsArr) do
+		local r : Vector3 = vec - centroid
+		xx += r.X * r.X
+		xy += r.X * r.Y
+		xz += r.X * r.Z
+		yy += r.Y * r.Y
+		yz += r.Y * r.Z
+		zz += r.Z * r.Z
+	end
+	local det_x = yy*zz - yz*yz
+    local det_y = xx*zz - xz*xz
+    local det_z = xx*yy - xy*xy
+
+	local det_max = math.max(det_x, det_y, det_z)
+	if (det_max <= 0) then
+		return noPlane
+	end
+
+	local dir: Vector3 = VEC3_ZERO
+	if (det_max == det_x) then
+		dir = Vector3.new(det_x, xz*yz - xy*zz, xy*yz - xz*yy)
+	elseif (det_max == det_y) then
+		dir = Vector3.new(xz*yz - xy*zz, det_y, xy*xz - yz*xx)
+	else
+		dir = Vector3.new(xy*yz - xz*yy, xy*xz - yz*xx, det_z)
+	end
+
+	-- Invert normal, if upside down
+	if (dir:Dot(VEC3_UP) < 0) then
+		dir = -dir
+	end
+
+	return {
+		centroid = centroid,
+		normal = dir.Unit
+	}
+end
+
+-- Returns the height of a plane at any given point 
+function MathUtil.planeHeightAtPoint(centroid: Vector3, normal: Vector3, loc: Vector3): number
+	local x, z = loc.X, loc.Z
+	return centroid.Y - ((normal.X * (x - centroid.X) + normal.Z * (z - centroid.Z)) / normal.Y)
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- Quaternions
+------------------------------------------------------------------------------------------------------------------------
+
+-- Constructs a Quaternion (set of numbers) from the rotation components of the given CFrame
+-- returns components in order: x, y, z, w
+function MathUtil.createQuaternionFromCFrame(cframe: CFrame): (number, number, number, number)
+	local _, _, _, m00, m01, m02, m10, m11, m12, m20, m21, m22 = cframe:Orthonormalize():GetComponents()
+
+	local x, y, z, w
+
+	local trace = m00 + m11 + m22
+	if (trace > 0) then
+		local s = math.sqrt(trace + 1) * 2
+		x = (m21 - m12) / s
+		y = (m02 - m20) / s
+		z = (m10 - m01) / s
+		w = 0.25 * s
+	elseif (m00 > m11 and m00 > m22) then
+		local s = math.sqrt(1 + m00 - m11 - m22) * 2
+		x = 0.25 * s
+		y = (m01 + m10) / s
+		z = (m02 + m20) / s
+		w = (m21 - m12) / s
+	elseif (m11 > m22) then
+		local s = math.sqrt(1 + m11 - m00 - m22) * 2
+		x = (m01 + m10) / s
+		y = 0.25 * s
+		z = (m12 + m21) / s
+		w = (m02 - m20) / s
+	else
+		local s = math.sqrt(1 + m22 - m00 - m11) * 2
+		x = (m02 + m20) / s
+		y = (m12 + m21) / s
+		z = 0.25 * s
+		w = (m10 - m01) / s
+	end
+
+	return x, y, z, w
+end
+
+-- Converts a Qaternion (set of numbers) to a CFrame
+function MathUtil.getCFrameFromQuaternion(x: number, y: number, z: number, w: number, position: Vector3?): CFrame
+	local pos = position or VEC3_ZERO
+
+	-- local mag = math.sqrt(x*x + y*y + z*z * w*w)
+	-- x, y, z, w = x/mag, y/mag, z/mag, w/mag
+	return CFrame.new(pos.X, pos.Y, pos.Z, x, y, z, w)
+end
 
 return MathUtil

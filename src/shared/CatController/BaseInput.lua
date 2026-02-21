@@ -3,30 +3,32 @@
 
 local ConnectionUtil = require(script.Parent.Common.ConnectionUtil)
 
-export type BaseInputType  = {
-    new: () -> BaseInputType,
-    getMoveVec: (BaseInputType) -> Vector3,
-    getIsJumping: (BaseInputType) -> boolean,
-    getIsRunning: (BaseInputType) -> boolean,
-    enable: (BaseInputType, enable: boolean) -> boolean,
+-- export type BaseInputType  = {
+--     new: () -> BaseInputType,
+--     getMoveVec: (BaseInputType) -> Vector3,
+--     getIsJumping: (BaseInputType) -> boolean,
+--     getIsRunning: (BaseInputType) -> boolean,
+--     enable: (BaseInputType, enable: boolean) -> boolean,
 
-    _connectionUtil: any,
+--     _connectionUtil: any,
 
-    enabled: boolean,
-    isJumping: boolean,
-    isRunning: boolean,
-    moveVec: Vector3,
+--     enabled: boolean,
+--     isJumping: boolean,
+--     isRunning: boolean,
+--     moveVec: Vector3,
 
-    [string]: any
-}
+--     [string]: any
+-- }
 
 local VEC3_ZERO = Vector3.zero
 
 local BaseMoveInput = {}
 BaseMoveInput.__index = BaseMoveInput
 
+export type BaseInput = typeof(BaseMoveInput)
+
 function BaseMoveInput.new()
-    local self = setmetatable({} :: any, BaseMoveInput) :: BaseInputType
+    local self = setmetatable({}, BaseMoveInput)
 
     self._connectionUtil = ConnectionUtil.new()
 

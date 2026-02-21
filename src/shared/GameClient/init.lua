@@ -9,12 +9,17 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 
 local Network = require(ReplicatedStorage.Shared.Network)
-local CliApi = require(ReplicatedStorage.Shared.Network.CliNetApi)
+local CliApi = require(script.CliNetApi)
+local Global = require(ReplicatedStorage.Shared.Global)
+local SoundManager = require(ReplicatedStorage.Shared.SoundManager)
+local DynamicAnim = require(ReplicatedStorage.Shared.DynamicAnim)
 
--- Init Controller singleton
+-- init Controller singleton
 require(ReplicatedStorage.Shared.CatController)
 
-local clientEvents = Network.clientEvents
+-- init other modules
+SoundManager.init()
+DynamicAnim.init()
 
 local DEFAULT_HEALTH = 100
 
@@ -22,6 +27,29 @@ type Counter = {
     t: number,
     cooldown: number
 }
+
+local function onJointsDataReceived(plr: Player, dataString: string)
+    DynamicAnim.updatePlrJointsFromData(plr, dataString)
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- Network
+------------------------------------------------------------------------------------------------------------------------
+
+local cliREFunction = {
+    [Network.serverEvents.playSound] = function(plr: Player, item: string, play: boolean)
+        SoundManager.updatePlayerSound(plr, item, play)
+    end
+}
+
+local cliFastREFunctions = {
+    [Network.serverFastEvents.jointsDataToClient] = function(plr: Player, ...)
+        onJointsDataReceived(plr, ...)
+    end,
+}
+
+CliApi.implementREvents(cliREFunction)
+CliApi.implementFastREvents(cliFastREFunctions)
 
 ------------------------------------------------------------------------------------------------------------------------
 -- Module
@@ -38,13 +66,14 @@ function GameClient.init()
 end
 
 function GameClient:InitPlayer()
-    local function respawnAfterCharRemove(character: Model)
-        print(character.Name .. " was removed")
+    local function respawnAfterCharRemove(char: Model)
+        Global.logInfo(`Removing character of {char.Name}`)
         --task.wait(1.5)
-        CliApi[clientEvents.requestSpawn]()
+        CliApi.events[Network.clientEvents.requestSpawn]:FireServer()
     end
 
-    CliApi[clientEvents.requestSpawn]()
+    Global.logInfo(`LocalPlayer requests spawn`)
+    CliApi.events[Network.clientEvents.requestSpawn]:FireServer()
     Players.LocalPlayer.CharacterRemoving:Connect(respawnAfterCharRemove)
 end
 
@@ -54,7 +83,7 @@ function GameClient:updateGameTime(dt: number, override: number?)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- GameClient update
+-- Update
 ------------------------------------------------------------------------------------------------------------------------
 function GameClient:update(dt: number)
     self:updateGameTime(dt)

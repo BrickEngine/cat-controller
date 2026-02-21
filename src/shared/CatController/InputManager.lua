@@ -53,11 +53,9 @@ function InputManager.new()
         -- TODO
 		self.playerGui = Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
 		if self.playerGui then
-            print("plrGui exists")
 			self:createTouchGuiContainer()
 			self:onLastInputTypeChanged(UserInputService:GetLastInputType())
 		else
-            print("plrGui NONONONON exists")
 			self.playerGuiAddedConn = Players.LocalPlayer.ChildAdded:Connect(function(child)
 				if child:IsA("PlayerGui") then
 					self.playerGui = child
@@ -206,7 +204,6 @@ function InputManager:onLastInputTypeChanged(newlastInpType: Enum.UserInputType)
             task.wait()
         end
         self:switchInputController(MoveTouch)
-        print("switching to touch controller")
 
     elseif (PC_INPUT_TYPE_MAP[lastInpType] ~= nil) then
         if (self.activeInputController and self.activeInputController == self.inputControllers[MoveKeyboard]) then
@@ -214,7 +211,6 @@ function InputManager:onLastInputTypeChanged(newlastInpType: Enum.UserInputType)
         end
 
         self:switchInputController(MoveKeyboard)
-        print("switching to keyboard controller")
     end
 end
 

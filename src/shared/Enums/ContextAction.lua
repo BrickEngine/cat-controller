@@ -1,4 +1,4 @@
-local Actions = {
+return table.freeze({
     -- movement
     MOVE_L = "moveLeftAction",
     MOVE_R = "moveRightAction",
@@ -12,6 +12,7 @@ local Actions = {
     SPEED_U = "speedUpAction",
     SPEED_D = "speedDownAction",
     SHIFT_BUTTON = "shiftButtonAction",
+    LOCK_SWITCH_ACTION = "MouseLockSwitchAction",
     -- camera
     CAM_L = "camRotateLeftAction",
     CAM_R = "camRotateRightAction",
@@ -21,6 +22,4 @@ local Actions = {
     SIT = "sitAction",
     -- other
     MENU = "MenuOpenAction"
-}
-
-return Actions
+})
